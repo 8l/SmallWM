@@ -9,7 +9,7 @@
 #include "struct.h"
 #include "table.h"
 #include "util.h"
-#include "inih/ini.h"
+#include "ini.h"
 
 smallwm_t *init_wm();
 void set_size_wm(smallwm_t *state, XEvent *event);

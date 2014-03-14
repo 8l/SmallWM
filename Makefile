@@ -1,49 +1,42 @@
-all: smallwm-release
+CC=/usr/bin/gcc
+CFLAGS=-Isrc -Iinih -g
+LINKERFLAGS=-lX11 -lXrandr
+OBJS=obj/ini.o obj/client.o obj/event.o obj/icon.o obj/smallwm.o obj/table.o obj/util.o obj/wm.o
 
-ini.o: inih/ini.c
-	gcc -c inih/ini.c
+all: bin/smallwm
 
-client.o: client.c
-	gcc -c client.c
+bin:
+	[ -d bin ] || mkdir bin
 
-event.o: event.c
-	gcc -c event.c
+obj:
+	[ -d obj ] || mkdir obj
 
-icon.o: icon.c
-	gcc -c icon.c
+obj/ini.o: obj inih/ini.c
+	${CC} ${CFLAGS} -c inih/ini.c -o obj/ini.o
 
-table.o: table.c
-	gcc -c table.c
+obj/client.o: obj src/client.c
+	${CC} ${CFLAGS} -c src/client.c -o obj/client.o
 
-util.o: util.c
-	gcc -c util.c
+obj/event.o: obj src/event.c
+	${CC} ${CFLAGS} -c src/event.c -o obj/event.o
 
-wm.o: wm.c
-	gcc -c wm.c
+obj/icon.o: obj src/icon.c
+	${CC} ${CFLAGS} -c src/icon.c -o obj/icon.o
 
-smallwm-release: client.o event.o icon.o table.o util.o wm.o ini.o
-	gcc -O3 client.o event.o icon.o table.o util.o wm.o ini.o smallwm.c -o smallwm-release -lX11 -lXrandr
+obj/smallwm.o: obj src/smallwm.c
+	${CC} ${CFLAGS} -c src/smallwm.c -o obj/smallwm.o
 
-client-debug.o: client.c
-	gcc -g -c client.c -o client-debug.o
+obj/table.o: obj src/table.c
+	${CC} ${CFLAGS} -c src/table.c -o obj/table.o
 
-event-debug.o: event.c
-	gcc -g -c event.c -o event-debug.o
+obj/util.o: obj src/util.c
+	${CC} ${CFLAGS} -c src/util.c -o obj/util.o
 
-icon-debug.o: icon.c
-	gcc -g -c icon.c -o icon-debug.o
+obj/wm.o: obj src/wm.c
+	${CC} ${CFLAGS} -c src/wm.c -o obj/wm.o
 
-table-debug.o: table.c
-	gcc -g -c table.c -o table-debug.o
-
-util-debug.o: util.c
-	gcc -g -c util.c -o util-debug.o
-
-wm-debug.o: wm.c
-	gcc -g -c wm.c -o wm-debug.o
-
-smallwm-debug: client-debug.o event-debug.o icon-debug.o table-debug.o util-debug.o wm-debug.o ini.o
-	gcc -g client-debug.o event-debug.o icon-debug.o table-debug.o util-debug.o wm-debug.o ini.o smallwm.c -o smallwm-debug -lX11 -lXrandr
+bin/smallwm: bin ${OBJS}
+	${CC} ${CFLAGS} ${OBJS} -o bin/smallwm ${LINKERFLAGS}
 
 clean:
-	rm -f *.o smallwm-*
+	rm -rf obj bin
