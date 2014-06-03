@@ -1,0 +1,244 @@
+"""
+Parses the configuration file, building the proper data structures to store
+configuration information.
+"""
+
+from collections import namedtuple
+from configparser import ConfigParser
+import os
+import syslog
+
+from smallwm import actions, keyboard
+from Xlib.XK import * # All of these are prefixed with XK_, so we should be okay
+
+DEFAULT_SHORTCUTS = [
+    (keyboard.CLIENT_NEXT_DESKTOP, "client-next-desktop", XK_bracketright),
+    (keyboard.CLIENT_PREV_DESKTOP, "client-prev-desktop", XK_bracketleft),
+    (keyboard.NEXT_DESKTOP, "next-desktop", XK_period),
+    (keyboard.PREV_DESKTOP, "prev-desktop", XK_comma),
+    (keyboard.TOGGLE_STICK, "toggle-stick", XK_backslash),
+    (keyboard.ICONIFY, "iconify", XK_h),
+    (keyboard.MAXIMIZE, "maximize", XK_m),
+    (keyboard.REQUEST_CLOSE, "request-close", XK_c),
+    (keyboard.FORCE_CLOSE, "force-close", XK_x),
+    (keyboard.SNAP_TOP, "snap-top", XK_Up),
+    (keyboard.SNAP_BOTTOM, "snap-bottom", XK_Down),
+    (keyboard.SNAP_LEFT, "snap-left", XK_Left),
+    (keyboard.SNAP_RIGHT, "snap-right", XK_Right),
+    (keyboard.LAYER_ABOVE, "layer-above", XK_Page_Up),
+    (keyboard.LAYER_BELOW, "layer-below", XK_Page_Down),
+    (keyboard.LAYER_TOP, "layer-top", XK_Home),
+    (keyboard.LAYER_BOTTOM, "layer-bottom", XK_End),
+    (keyboard.LAYER_1, "layer-1", XK_1),
+    (keyboard.LAYER_2, "layer-2", XK_2),
+    (keyboard.LAYER_3, "layer-3", XK_3),
+    (keyboard.LAYER_4, "layer-4", XK_4),
+    (keyboard.LAYER_5, "layer-5", XK_5),
+    (keyboard.LAYER_6, "layer-6", XK_6),
+    (keyboard.LAYER_7, "layer-7", XK_7),
+    (keyboard.LAYER_8, "layer-8", XK_8),
+    (keyboard.LAYER_9, "layer-9", XK_9),
+    (keyboard.EXIT_WM, "exit", XK_Escape)]
+]
+
+SYSLOG_LEVEL = {
+    name: getattr(syslog, 'LOG_' + name) for name in
+    ['EMERG', 'ALERT', 'CRIT', 'ERR', 'WARNING', 'NOTICE', 'INFO', 'DEBUG']
+}
+
+SNAP_DIRS = {
+    'left': actions.LEFT,
+    'right': actions.RIGHT,
+    'top': actions.TOP,
+    'bottom': actions.BOTTOM,
+}
+
+class SmallWMConfig:
+    """
+    Loads and parses the configuration file, and then stores the configuration values.
+
+    Members:
+     - log_mask :: The minimum level of messages to send to syslog
+     - shell :: The shell to run on Super + LClick
+     - key_commands :: A mapping from (key -> action)
+     - command_keys :: A mapping from (action -> key)
+     - num_desktops :: The total number of desktops
+     - icon_size :: The size of icon windows
+     - border_width :: The width of the window border
+     - class_actions :: A map of (X11 class -> list of actions)
+     - show_pixmaps :: Whether or not to show pixmaps on icon windows
+    """
+    def __init__(self):
+        self.log_mask = syslog.LOG_UPTO(syslog.LOG_WARNING)
+        self.shell = "/usr/bin/xterm"
+
+        self.key_commands = {}
+        self.command_keys = {}
+        self._config_actions = {} # Maps configuration keys to keyboard actions
+        for action, config_name, key_binding in DEFAULT_SHORTCUTS:
+            self.key_commands[key_binding] = action
+            self.command_keys[action] = key_binding
+            self._config_actions[config_name] = action
+
+        self.num_desktops = 5
+        self.icon_width = 75
+        self.icon_height = 20
+        self.border_width = 2
+        self.class_actions = {}
+        self.show_pixmaps = True
+
+        # Maps configuration file sections to the 
+        self._section_mapping = {
+            'smallwm': self.parse_smallwm_body,
+            'actions': self.parse_class_action,
+            'keyboard': self.parse_key_binding,
+        }
+
+    def get_config_filename(self):
+        """
+        Gets a path to the configuration file.
+        """
+        return os.path.join(os.environ["HOME"], '.config', 'smallwm')
+
+    def nonexistent_section(self, section):
+        """
+        Prints an error to syslog about the nonexistent section.
+        """
+        syslog.syslog(syslog.LOG_WARNING, 'Nonexistent section {}'.format(section))
+
+    def nonexistent_key(self, section, key):
+        """
+        Prints an error to syslog about the nonexistent key.
+        """
+        syslog.syslog(syslog.LOG_WARNING, 'Nonexistant key {}.{}'.format(section, key))
+
+    def parse(self):
+        """
+        Parses out the configuration, and handles the sections.
+        """
+        parser = configparser.ConfigParser()
+        parser.read(self.get_config_filename())
+
+        for section in parser.sections():
+            if section in self._section_mapping:
+                for key in section:
+                    self._section_mapping[section](key, section[key])
+            else:
+                self.nonexistent_section(section)
+
+    def parse_smallwm_body(self, key, value):
+        """
+        Parses the SmallWM core options.
+        """
+        if key == 'log-level':
+            self.log_mask = SYSLOG_LEVEL.get(value, syslog.LOG_WARNING)
+        elif key == 'shell':
+            self.shell = value
+        elif key == 'desktops':
+            try:
+                self.desktops = int(value)
+            except ValueError:
+                pass
+        elif key == 'icon-width':
+            try:
+                self.icon_width = int(value)
+            except ValueError:
+                pass
+        elif key == 'icon-height':
+            try:
+                self.icon_height = int(value)
+            except ValueError:
+                pass
+        elif key == 'border-width':
+            try:
+                self.border_width = int(value)
+            except:
+                pass
+        elif key == 'icon-icons':
+            try:
+                self.show_pixmaps = bool(int(value))
+            except:
+                pass
+        else:
+            self.nonexistent_key('smallwm', 'key')
+
+    def parse_class_action(self, key, value):
+        """
+        Parses the class action syntax, into actions.
+
+        <actions> := {<action> {"," <action>}+}?
+
+        <action> := "stick"
+                |   "maximize"
+                |   "snap:" <snapdir>
+                |   "layer:" <int>
+
+        <snapdir> := "left"
+                |   "right"
+                |   "top"
+                |   "bottom"
+        """
+        action_list = []
+        self.class_actions[key] = action_list
+
+        actions = value.split(',')
+        for action in actions:
+            # Whitespace is allowed, but we don't have any use for it
+            action = action.strip()
+
+            if action == 'stick':
+                action_list.append(actions.Stick())
+            elif action == 'maximize':
+                action_list.append(actions.Maximize())
+            elif action.startswith('layer:'):
+                try:
+                    layer_offset = len('layer:')
+                    layer = int(action[layer_offset:])
+                    action_list.append(actions.SetLayer(layer)
+                except ValueError:
+                    syslog.syslog(syslog.LOG_WARNING, 
+                        'Invalid action: "{}"'.format(action))
+            elif action.startswith('snap:'):
+                try:
+                    direction_offset = len('snap:')
+                    direction = SNAP_DIRS[action[direction_offset:]]
+                    action_list.append(actions.Snap(direction))
+                except KeyError:
+                    syslog.syslog(syslog.LOG_WARNING,
+                        'Invalid action: "{}"'.format(action))
+            else:
+                syslog.syslog(syslog.LOG_WARNING,
+                    'Invalid action: "{}"'.format(action))
+
+    def parse_key_binding(self, key, value):
+        """
+        Parses key bindings, and assigns them to actions.
+        """
+        try:
+            action = self._config_actions[key]
+        except KeyError:
+            syslog.syslog(syslog.LOG_WARNING,
+                'Invalid keyboard binding: "{}"'.format(key))
+            return
+
+        try:
+            key_binding = globals()['XK_' + value]
+        except KeyError:
+            syslog.syslog(syslog.LOG_WARNING,
+                'Invalid keyboard shortcut: "{}"'.format(value))
+            return
+
+        # If there is already a key binding, then log an error
+        if key_binding in self.key_commands:
+            syslog.syslog(syslog.LOG_WARNING,
+                'Key binding collision: "{}"'.format(value))
+            return
+
+        # If an old binding exists for this action, then remove it
+        if action in self.command_keys:
+            key = self.command_keys[action]
+            del self.command_keys[action]
+            del self.key_commands[action]
+
+        self.key_commands[key_binding] = action
+        self.command_keys[action] = key_binding
