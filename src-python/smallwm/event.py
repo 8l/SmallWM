@@ -1,6 +1,6 @@
 """
-A generic event dispatcher, which supports multiple event types, and passing data
-to event handlers.
+A generic event dispatcher, which supports multiple event types, and passing
+data to event handlers.
 """
 
 from collections import defaultdict
@@ -17,7 +17,7 @@ class Dispatch:
         Registers a callback on a particular event.
         """
         self.events[event].add(callback)
-    
+
     def unregister(self, event, callback):
         """
         Unregisters a callback from a particular event.

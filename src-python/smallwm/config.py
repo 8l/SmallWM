@@ -3,43 +3,47 @@ Parses the configuration file, building the proper data structures to store
 configuration information.
 """
 
-from collections import namedtuple
-from configparser import ConfigParser
+import configparser
 import os
 import syslog
 
 from smallwm import actions, keyboard
-from Xlib.XK import * # All of these are prefixed with XK_, so we should be okay
+from Xlib import XK
 
+# The members from XK are dynamically generated, and thus we should tell pylint
+# to ignore any errors as a result of trying to analyze Xlib.XK statically
+
+# pylint: disable=E1101
 DEFAULT_SHORTCUTS = [
-    (keyboard.CLIENT_NEXT_DESKTOP, "client-next-desktop", XK_bracketright),
-    (keyboard.CLIENT_PREV_DESKTOP, "client-prev-desktop", XK_bracketleft),
-    (keyboard.NEXT_DESKTOP, "next-desktop", XK_period),
-    (keyboard.PREV_DESKTOP, "prev-desktop", XK_comma),
-    (keyboard.TOGGLE_STICK, "toggle-stick", XK_backslash),
-    (keyboard.ICONIFY, "iconify", XK_h),
-    (keyboard.MAXIMIZE, "maximize", XK_m),
-    (keyboard.REQUEST_CLOSE, "request-close", XK_c),
-    (keyboard.FORCE_CLOSE, "force-close", XK_x),
-    (keyboard.SNAP_TOP, "snap-top", XK_Up),
-    (keyboard.SNAP_BOTTOM, "snap-bottom", XK_Down),
-    (keyboard.SNAP_LEFT, "snap-left", XK_Left),
-    (keyboard.SNAP_RIGHT, "snap-right", XK_Right),
-    (keyboard.LAYER_ABOVE, "layer-above", XK_Page_Up),
-    (keyboard.LAYER_BELOW, "layer-below", XK_Page_Down),
-    (keyboard.LAYER_TOP, "layer-top", XK_Home),
-    (keyboard.LAYER_BOTTOM, "layer-bottom", XK_End),
-    (keyboard.LAYER_1, "layer-1", XK_1),
-    (keyboard.LAYER_2, "layer-2", XK_2),
-    (keyboard.LAYER_3, "layer-3", XK_3),
-    (keyboard.LAYER_4, "layer-4", XK_4),
-    (keyboard.LAYER_5, "layer-5", XK_5),
-    (keyboard.LAYER_6, "layer-6", XK_6),
-    (keyboard.LAYER_7, "layer-7", XK_7),
-    (keyboard.LAYER_8, "layer-8", XK_8),
-    (keyboard.LAYER_9, "layer-9", XK_9),
-    (keyboard.EXIT_WM, "exit", XK_Escape)]
+    (keyboard.CLIENT_NEXT_DESKTOP, "client-next-desktop", XK.XK_bracketright),
+    (keyboard.CLIENT_PREV_DESKTOP, "client-prev-desktop", XK.XK_bracketleft),
+    (keyboard.NEXT_DESKTOP, "next-desktop", XK.XK_period),
+    (keyboard.PREV_DESKTOP, "prev-desktop", XK.XK_comma),
+    (keyboard.TOGGLE_STICK, "toggle-stick", XK.XK_backslash),
+    (keyboard.ICONIFY, "iconify", XK.XK_h),
+    (keyboard.MAXIMIZE, "maximize", XK.XK_m),
+    (keyboard.REQUEST_CLOSE, "request-close", XK.XK_c),
+    (keyboard.FORCE_CLOSE, "force-close", XK.XK_x),
+    (keyboard.SNAP_TOP, "snap-top", XK.XK_Up),
+    (keyboard.SNAP_BOTTOM, "snap-bottom", XK.XK_Down),
+    (keyboard.SNAP_LEFT, "snap-left", XK.XK_Left),
+    (keyboard.SNAP_RIGHT, "snap-right", XK.XK_Right),
+    (keyboard.LAYER_ABOVE, "layer-above", XK.XK_Page_Up),
+    (keyboard.LAYER_BELOW, "layer-below", XK.XK_Page_Down),
+    (keyboard.LAYER_TOP, "layer-top", XK.XK_Home),
+    (keyboard.LAYER_BOTTOM, "layer-bottom", XK.XK_End),
+    (keyboard.LAYER_1, "layer-1", XK.XK_1),
+    (keyboard.LAYER_2, "layer-2", XK.XK_2),
+    (keyboard.LAYER_3, "layer-3", XK.XK_3),
+    (keyboard.LAYER_4, "layer-4", XK.XK_4),
+    (keyboard.LAYER_5, "layer-5", XK.XK_5),
+    (keyboard.LAYER_6, "layer-6", XK.XK_6),
+    (keyboard.LAYER_7, "layer-7", XK.XK_7),
+    (keyboard.LAYER_8, "layer-8", XK.XK_8),
+    (keyboard.LAYER_9, "layer-9", XK.XK_9),
+    (keyboard.EXIT_WM, "exit", XK.XK_Escape)
 ]
+# pylint: enable=E1101
 
 SYSLOG_LEVEL = {
     name: getattr(syslog, 'LOG_' + name) for name in
@@ -55,7 +59,8 @@ SNAP_DIRS = {
 
 class SmallWMConfig:
     """
-    Loads and parses the configuration file, and then stores the configuration values.
+    Loads and parses the configuration file, and then stores the configuration
+    values.
 
     Members:
      - log_mask :: The minimum level of messages to send to syslog
@@ -87,7 +92,7 @@ class SmallWMConfig:
         self.class_actions = {}
         self.show_pixmaps = True
 
-        # Maps configuration file sections to the 
+        # Maps configuration file sections to the
         self._section_mapping = {
             'smallwm': self.parse_smallwm_body,
             'actions': self.parse_class_action,
@@ -104,13 +109,15 @@ class SmallWMConfig:
         """
         Prints an error to syslog about the nonexistent section.
         """
-        syslog.syslog(syslog.LOG_WARNING, 'Nonexistent section {}'.format(section))
+        syslog.syslog(syslog.LOG_WARNING,
+            'Nonexistent section {}'.format(section))
 
     def nonexistent_key(self, section, key):
         """
         Prints an error to syslog about the nonexistent key.
         """
-        syslog.syslog(syslog.LOG_WARNING, 'Nonexistant key {}.{}'.format(section, key))
+        syslog.syslog(syslog.LOG_WARNING, 
+            'Nonexistant key {}.{}'.format(section, key))
 
     def parse(self):
         """
@@ -136,7 +143,7 @@ class SmallWMConfig:
             self.shell = value
         elif key == 'desktops':
             try:
-                self.desktops = int(value)
+                self.num_desktops = int(value)
             except ValueError:
                 pass
         elif key == 'icon-width':
@@ -152,12 +159,12 @@ class SmallWMConfig:
         elif key == 'border-width':
             try:
                 self.border_width = int(value)
-            except:
+            except ValueError:
                 pass
         elif key == 'icon-icons':
             try:
                 self.show_pixmaps = bool(int(value))
-            except:
+            except ValueError:
                 pass
         else:
             self.nonexistent_key('smallwm', 'key')
@@ -181,8 +188,8 @@ class SmallWMConfig:
         action_list = []
         self.class_actions[key] = action_list
 
-        actions = value.split(',')
-        for action in actions:
+        action_values = value.split(',')
+        for action in action_values:
             # Whitespace is allowed, but we don't have any use for it
             action = action.strip()
 
@@ -194,9 +201,9 @@ class SmallWMConfig:
                 try:
                     layer_offset = len('layer:')
                     layer = int(action[layer_offset:])
-                    action_list.append(actions.SetLayer(layer)
+                    action_list.append(actions.SetLayer(layer))
                 except ValueError:
-                    syslog.syslog(syslog.LOG_WARNING, 
+                    syslog.syslog(syslog.LOG_WARNING,
                         'Invalid action: "{}"'.format(action))
             elif action.startswith('snap:'):
                 try:
@@ -222,8 +229,8 @@ class SmallWMConfig:
             return
 
         try:
-            key_binding = globals()['XK_' + value]
-        except KeyError:
+            key_binding = getattr(XK, 'XK_' + value)
+        except AttributeError:
             syslog.syslog(syslog.LOG_WARNING,
                 'Invalid keyboard shortcut: "{}"'.format(value))
             return
