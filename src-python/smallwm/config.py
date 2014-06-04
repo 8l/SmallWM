@@ -7,7 +7,7 @@ import configparser
 import os
 import syslog
 
-from smallwm import actions, keyboard
+from smallwm import actions, keyboard, utils
 from Xlib import XK
 
 # The members from XK are dynamically generated, and thus we should tell pylint
@@ -116,56 +116,75 @@ class SmallWMConfig:
         """
         Prints an error to syslog about the nonexistent key.
         """
-        syslog.syslog(syslog.LOG_WARNING, 
+        syslog.syslog(syslog.LOG_WARNING,
             'Nonexistant key {}.{}'.format(section, key))
 
     def parse(self):
         """
         Parses out the configuration, and handles the sections.
         """
-        parser = configparser.ConfigParser()
-        parser.read(self.get_config_filename())
+        try:
+            parser = configparser.ConfigParser()
+            parser.read(self.get_config_filename())
 
-        for section in parser.sections():
-            if section in self._section_mapping:
-                for key in section:
-                    self._section_mapping[section](key, section[key])
-            else:
-                self.nonexistent_section(section)
+            for section_name in parser.sections():
+                if section_name in self._section_mapping:
+                    section = parser[section_name]
+                    for key, value in section.items():
+                        self._section_mapping[section_name](key, value)
+                else:
+                    self.nonexistent_section(section_name)
+        except configparser.Error as ex:
+            syslog.syslog(syslog.LOG_ERR,
+                'Parsing configuration file failed - "{}"'.format(ex))
 
     def parse_smallwm_body(self, key, value):
         """
         Parses the SmallWM core options.
         """
         if key == 'log-level':
-            self.log_mask = SYSLOG_LEVEL.get(value, syslog.LOG_WARNING)
+            try:
+                self.log_mask = SYSLOG_LEVEL[value]
+            except KeyError:
+                syslog.syslog(syslog.LOG_WARNING,
+                    'Invalid log level "{}"'.format(value))
         elif key == 'shell':
             self.shell = value
         elif key == 'desktops':
             try:
-                self.num_desktops = int(value)
+                self.num_desktops = utils.positive_int(value)
             except ValueError:
-                pass
+                syslog.syslog(syslog.LOG_WARNING,
+                    'Invalid cardinal "{}"'.format(value))
         elif key == 'icon-width':
             try:
-                self.icon_width = int(value)
+                self.icon_width = utils.positive_int(value)
             except ValueError:
-                pass
+                syslog.syslog(syslog.LOG_WARNING,
+                    'Invalid cardinal "{}"'.format(value))
         elif key == 'icon-height':
             try:
-                self.icon_height = int(value)
+                self.icon_height = utils.positive_int(value)
             except ValueError:
-                pass
+                syslog.syslog(syslog.LOG_WARNING,
+                    'Invalid cardinal "{}"'.format(value))
         elif key == 'border-width':
             try:
-                self.border_width = int(value)
+                self.border_width = utils.positive_int(value)
             except ValueError:
-                pass
-        elif key == 'icon-icons':
+                syslog.syslog(syslog.LOG_WARNING,
+                    'Invalid cardinal "{}"'.format(value))
+        elif key == 'icon-pixmaps':
             try:
-                self.show_pixmaps = bool(int(value))
+                if value.lower() == 'true':
+                    self.show_pixmaps = True
+                elif value.lower() == 'false':
+                    self.show_pixmaps = False
+                else:
+                    raise ValueError
             except ValueError:
-                pass
+                syslog.syslog(syslog.LOG_WARNING,
+                    'Invalid boolean "{}"'.format(value))
         else:
             self.nonexistent_key('smallwm', 'key')
 
@@ -200,7 +219,10 @@ class SmallWMConfig:
             elif action.startswith('layer:'):
                 try:
                     layer_offset = len('layer:')
-                    layer = int(action[layer_offset:])
+                    layer = utils.positive_int(action[layer_offset:])
+                    if layer > utils.MAX_LAYER:
+                        raise ValueError
+
                     action_list.append(actions.SetLayer(layer))
                 except ValueError:
                     syslog.syslog(syslog.LOG_WARNING,
@@ -221,6 +243,15 @@ class SmallWMConfig:
         """
         Parses key bindings, and assigns them to actions.
         """
+        # If the user wants to use an existing key binding, they have to use
+        # an '!' before the value of the key to let us know that they're not
+        # accidentally trying to double-bind a key
+        if value[0] == '!':
+            force_overwrite = True
+            value = value[1:]
+        else:
+            force_overwrite = False
+
         try:
             action = self._config_actions[key]
         except KeyError:
@@ -235,17 +266,18 @@ class SmallWMConfig:
                 'Invalid keyboard shortcut: "{}"'.format(value))
             return
 
-        # If there is already a key binding, then log an error
-        if key_binding in self.key_commands:
+        # If there is already a key binding, then log an error, but only if
+        # the user hasn't already asked us to ignore this check
+        if not force_overwrite and key_binding in self.key_commands:
             syslog.syslog(syslog.LOG_WARNING,
                 'Key binding collision: "{}"'.format(value))
             return
 
         # If an old binding exists for this action, then remove it
         if action in self.command_keys:
-            key = self.command_keys[action]
+            existing_key = self.command_keys[action]
             del self.command_keys[action]
-            del self.key_commands[action]
+            del self.key_commands[existing_key]
 
         self.key_commands[key_binding] = action
         self.command_keys[action] = key_binding
