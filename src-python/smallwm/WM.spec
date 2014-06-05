@@ -1,8 +1,16 @@
 wm
     ==> wm_state
+        ==> display
+        ==> screen
+        ==> root
         ==> current_desktop
+        ==> screen_width
+        ==> screen_height
     ==> wm_config
         ==> max_desktops
+        ==> icon_width
+        ==> icon_height
+        ==> show_pixmaps
     ==> client_data
         ==> [window]
             ==> is_sticky
@@ -10,5 +18,9 @@ wm
             ==> layer
             ==> icon
                 ==> window
+                ==> graphics_ctx
+                ==> pixmap
+                ==> pix_width
+                ==> pix_height
             ==> move_resize
                 ==> window

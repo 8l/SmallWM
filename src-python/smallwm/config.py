@@ -68,7 +68,7 @@ class SmallWMConfig:
      - key_commands :: A mapping from (key -> action)
      - command_keys :: A mapping from (action -> key)
      - num_desktops :: The total number of desktops
-     - icon_size :: The size of icon windows
+     - icon_width, icon_height :: The size of icon windows
      - border_width :: The width of the window border
      - class_actions :: A map of (X11 class -> list of actions)
      - show_pixmaps :: Whether or not to show pixmaps on icon windows
