@@ -61,19 +61,19 @@ class Dispatch:
         Dispatches on an event, calling all the necessary handlers.
         """
         for callback in self.events[event]:
-            callback(data)
+            callback(*data)
 
 class XEventDispatcher(Dispatch):
     """
     Dispatches on X events, received from an X display.
     """
-    def __init__(self, display):
+    def __init__(self, wm):
         super().__init__()
-        self.display = display
+        self.wm = wm
 
     def get_next_event(self):
         """
         Gets the next event to be pumped by the event loop.
         """
-        event = self.display.next_event()
-        return event.type, event
+        event = self.wm.wm_state.display.next_event()
+        return event.type, [wm, event]
