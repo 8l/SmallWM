@@ -3,18 +3,20 @@ Useful, general functions and constants used in various places throughout
 SmallWM.
 """
 
-# The maximum layer is 119, since:
+# Values about how layers are managed
 #    User windows are [1, 109]
 #    Dialogs are [110, 119]
+MIN_LAYER = 1
 MAX_LAYER = 119
 
-# The properties that are stored for each client
-(CD_DESKTOP, # The current desktop of the client
- CD_STICKY, # Whether the client is sticky or not
- CD_LAYER, # The current stacking layer of the client
- CD_STATE, # The currents state of the client
- CD_ICON, # The icon state of the clientA
-) = range(5)
+# These are different, since these are the highest and lowest layer that
+# a window can be 'set' to (since 'setting' the layer keeps the focus offset
+# intact)
+BOTTOM_LAYER = 10
+TOP_LAYER = 110
+
+INCR_LAYER = 10
+FOCUS_OFFSET = 5
 
 def positive_int(text):
     """

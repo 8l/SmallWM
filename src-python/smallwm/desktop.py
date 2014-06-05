@@ -6,16 +6,14 @@ Handles desktop-related elements, including:
  - Changing the desktop of a window
 """
 from Xlib import X
-from smallwm import keyboard, utils
+from smallwm import keyboard, layer, utils
 
-# pylint: disable=W0613
-def bind_events(x_events):
+def bind_x_events(_):
     """
     Binds X events to particular functions.
 
     (Here, this does nothing, but it is a required part of the module)
     """
-# pylint: enable=W0613
 
 def bind_keys(key_events):
     """
@@ -43,6 +41,8 @@ def update_desktop(wm):
         elif not is_currently_visible and utils.is_visible(wm, client):
             # Show this client, since it isn't visible but should be
             client.map()
+
+    layer.update_layers(wm)
 
 def flip_sticky_flag(wm, window):
     """

@@ -7,3 +7,8 @@ wm
         ==> [window]
             ==> is_sticky
             ==> desktop
+            ==> layer
+            ==> icon
+                ==> window
+            ==> move_resize
+                ==> window
