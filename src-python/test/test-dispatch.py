@@ -11,16 +11,17 @@ sys.path.append(os.path.join(*os.path.split(sys.path[0])[:-1]))
 import smallwm.events
 
 EVENT = 1
-VALUE = 42
+VALUE1 = 42
+VALUE2 = 84
 class SimpleDispatcher(smallwm.events.Dispatch):
     """
     Dispatches on an event, which is just the number 1.
     """
     def get_next_event(self):
         """
-        Returns 1, None
+        Returns 1, [42, 84]
         """
-        return EVENT, VALUE
+        return EVENT, [VALUE1, VALUE2]
 
 class TestDispatcher(unittest.TestCase):
     """
@@ -37,10 +38,10 @@ class TestDispatcher(unittest.TestCase):
         """
         handler_called = False
         handler_value = None
-        def handler(x):
+        def handler(x, y):
             nonlocal handler_called, handler_value
             handler_called = True
-            handler_value = x
+            handler_value = x, y
 
         dispatch = SimpleDispatcher()
         dispatch.step()
@@ -51,7 +52,7 @@ class TestDispatcher(unittest.TestCase):
         dispatch.step()
 
         self.assertTrue(handler_called)
-        self.assertEqual(handler_value, VALUE)
+        self.assertEqual(handler_value, (VALUE1, VALUE2))
 
     def test_unregister(self):
         """
@@ -60,17 +61,17 @@ class TestDispatcher(unittest.TestCase):
         """
         handler_called = False
         handler_value = None
-        def handler(x):
+        def handler(x, y):
             nonlocal handler_called, handler_value
             handler_called = True
-            handler_value = x
+            handler_value = x, y
 
         dispatch = SimpleDispatcher()
         dispatch.register(EVENT, handler)
         dispatch.step()
 
         self.assertTrue(handler_called)
-        self.assertEqual(handler_value, VALUE)
+        self.assertEqual(handler_value, (VALUE1, VALUE2))
         handler_called = False
         handler_value = None
 
@@ -81,7 +82,7 @@ class TestDispatcher(unittest.TestCase):
 
     def test_terminate(self):
         dispatch = SimpleDispatcher()
-        def handler(x):
+        def handler(x, y):
             dispatch.terminate()
 
         dispatch = SimpleDispatcher()
