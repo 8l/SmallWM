@@ -33,3 +33,9 @@ def is_visible(wm, window):
     Determines whether or not a window should be visible.
     """
     raise NotImplementedError
+
+def set_focus(wm, window):
+    """
+    Changes the input focus to the given window.
+    """
+    raise NotImplementedError
