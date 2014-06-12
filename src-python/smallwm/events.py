@@ -6,7 +6,28 @@ from collections import defaultdict
 
 class Dispatch:
     """
-    Dispatches on events.
+    An event dispatching mechanism, which can either be used as an event loop
+    (where events are read and dispatched upon automatically) or as an event
+    dispatcher (where events are provided from the outside, and only the
+    dispatching is automatic).
+
+    For the first case, consider the following example:
+    >>> class X(Dispatch):
+    ...     def get_next_event(self):
+    ...         # Note that the second argument is a list, because the elements
+    ...         # are unpacked and passed as *args
+    ...         return event_type, [event_arguments]
+    ...
+    >>> x = X()
+    >>> x.register('event-1', func_a)
+    >>> x.register('event-2', func_b)
+    >>> x.run()
+
+    For the second case, consider this example instead:
+    >>> x = Dispatcher()
+    >>> x.register('event-1', func_a)
+    >>> x.register('event-2', func_b)
+    >>> x.dispatch('event-1', some, data) # Calls func_a(some, data)
     """
     def __init__(self):
         self.events = defaultdict(set)
@@ -28,7 +49,7 @@ class Dispatch:
             return False
 
         next_event, event_params = self.get_next_event()
-        self.dispatch(next_event, event_params)
+        self._dispatch(next_event, event_params)
         return True
 
     def run(self):
@@ -56,12 +77,18 @@ class Dispatch:
         """
         self.events[event].remove(callback)
 
-    def dispatch(self, event, data):
+    def _dispatch(self, event, data):
         """
-        Dispatches on an event, calling all the necessary handlers.
+        Does dispatching directly on an event and a list of data.
         """
         for callback in self.events[event]:
             callback(*data)
+
+    def dispatch(self, event, *data):
+        """
+        Dispatches on an event, calling all the necessary handlers.
+        """
+        self._dispatch(event, data)
 
 class XEventDispatcher(Dispatch):
     """
