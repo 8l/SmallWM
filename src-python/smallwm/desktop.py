@@ -6,7 +6,7 @@ Handles desktop-related elements, including:
  - Changing the desktop of a window
 """
 from Xlib import X
-from smallwm import keyboard, layer, utils
+from smallwm import keyboard, utils
 
 def bind_x_events(_):
     """

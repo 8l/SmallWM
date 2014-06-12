@@ -57,7 +57,7 @@ def adjust_layer(wm, window, *, offset):
 
     # Avoid needless adjustments, by allowing only valid adjustments to cause
     # restacking.
-    if utils.MIN_LAYER <= current_layer <= utils.MAX_LAYER:
+    if MIN_LAYER <= current_layer <= MAX_LAYER:
         wm.client_data[window].layer += offset
         wm.wm_state.update_layers = True
 
@@ -68,10 +68,10 @@ def unfocus(wm, window):
     wm_state = wm.wm_state
     window.configure(border_pixel=wm_state.white_pixel)
     window.grab_button(X.AnyButton, X.AnyModifier, False,
-            X.ButtonPressMask | X.ButtonReleaseMask, 
+            X.ButtonPressMask | X.ButtonReleaseMask,
             X.GrabModeAsync, X.GrabModeAsync, None, None)
 
-    adjust_layer(wm, window, offset=-utils.INCR_LAYER)
+    adjust_layer(wm, window, offset=-INCR_LAYER)
 
 def set_focus(wm, window):
     """
@@ -82,16 +82,16 @@ def set_focus(wm, window):
         # Restore the grab on the previously focused window before changing
         # the focus to us
         unfocus(wm, window)
-    
+
     attrs = window.get_attributes()
-    if (attrs.win_class != Xlib.X.InputOnly 
+    if (attrs.win_class != Xlib.X.InputOnly
             and attrs.map_state == X.IsViewable):
         window.ungrab_button(X.AnyButton, X.AnyModifier)
         window.set_input_focus(X.RevertToNone, X.CurrentTime)
 
         # Assume that the focus transferred properly, and make the layer and
         # border changes (if not, we'll call unfocus() to fix these things)
-        adjust_layer(wm, window, offset=utils.INCR_LAYER)
+        adjust_layer(wm, window, offset=INCR_LAYER)
         window.configure(border_pixel=wm_state.black_pixel)
 
         # Make sure that the focus transferred properly
@@ -100,5 +100,5 @@ def set_focus(wm, window):
             # If not, then nobody is focused
             unfocus(wm, window)
             wm_state.current_focus = None
-        
+
     wm_state.update_layers = True
