@@ -84,7 +84,7 @@ def adjust_layer(wm, window, *, offset):
     # restacking.
     if utils.MIN_LAYER <= current_layer <= utils.MAX_LAYER:
         wm.client_data[window].layer += offset
-        update_layers(wm)
+        wm.wm_state.update_layers = True
 
 def set_layer(wm, window, *, layer):
     """
@@ -94,4 +94,4 @@ def set_layer(wm, window, *, layer):
     current_layer = wm.client_data[window].layer
     layer_offset = current_layer % utils.INCR_LAYER
     wm.client_data[window].layer = layer + layer_offset
-    update_layers(wm)
+    wm.wm_state.update_desktops = True

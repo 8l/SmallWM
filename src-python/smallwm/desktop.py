@@ -42,7 +42,8 @@ def update_desktop(wm):
             # Show this client, since it isn't visible but should be
             client.map()
 
-    layer.update_layers(wm)
+    # Prepare for a layer shift
+    wm.wm_state.update_layers = True
 
 def flip_sticky_flag(wm, window):
     """
@@ -54,7 +55,7 @@ def flip_sticky_flag(wm, window):
 
     # Only update the desktop here if we actually changed anything
     if utils.is_visible(wm, window) != old_visibility:
-        update_desktop(wm)
+        wm.wm_state.update_desktops = True
 
 def client_next_desktop(wm, window):
     """

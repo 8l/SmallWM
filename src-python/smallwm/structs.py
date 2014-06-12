@@ -61,7 +61,10 @@ class WMState(metaclass=Struct):
     The state of the window manager related to X.
     """
     __slots__ = ('display', 'screen', 'root', 'current_desktop',
-            'screen_width', 'screen_height', 'current_focus')
+            'screen_width', 'screen_height', 'current_focus',
+            'update_layers', 'update_desktops')
+    __defaults__ = {'current_desktop': 1, 'current_focus': None, 
+        'update_layers': False, 'update_desktops': False}
 
 class WMConfig(metaclass=Struct):
     """
