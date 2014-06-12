@@ -3,6 +3,8 @@ Useful, general functions and constants used in various places throughout
 SmallWM.
 """
 
+from Xlib import X
+
 # Values about how layers are managed
 #    User windows are [1, 109]
 #    Dialogs are [110, 119]
@@ -32,10 +34,71 @@ def is_visible(wm, window):
     """
     Determines whether or not a window should be visible.
     """
-    raise NotImplementedError
+    client = wm.client_data[window]
+
+    has_icon = client.icon is not None
+    is_moved_resized = client.move_resize is not None
+    if has_icon or is_moved_resized:
+        return False
+
+    if client.desktop == wm.wm_state.current_desktop:
+        return True
+
+    return False
+
+def adjust_layer(wm, window, *, offset):
+    """
+    Adjusts the layer of a window, relative to where it already is.
+
+    Note that this is in utils since the focus routines use it also.
+    """
+    current_layer = wm.client_data[window].layer
+    current_layer += offset
+
+    # Avoid needless adjustments, by allowing only valid adjustments to cause
+    # restacking.
+    if utils.MIN_LAYER <= current_layer <= utils.MAX_LAYER:
+        wm.client_data[window].layer += offset
+        wm.wm_state.update_layers = True
+
+def unfocus(wm, window):
+    """
+    Removes the focus from a window.
+    """
+    wm_state = wm.wm_state
+    window.configure(border_pixel=wm_state.white_pixel)
+    window.grab_button(X.AnyButton, X.AnyModifier, False,
+            X.ButtonPressMask | X.ButtonReleaseMask, 
+            X.GrabModeAsync, X.GrabModeAsync, None, None)
+
+    adjust_layer(wm, window, offset=-utils.INCR_LAYER)
 
 def set_focus(wm, window):
     """
     Changes the input focus to the given window.
     """
-    raise NotImplementedError
+    wm_state = wm.wm_state
+    if wm_state.current_focus is not None:
+        # Restore the grab on the previously focused window before changing
+        # the focus to us
+        unfocus(wm, window)
+    
+    attrs = window.get_attributes()
+    if (attrs.win_class != Xlib.X.InputOnly 
+            and attrs.map_state == X.IsViewable):
+        window.ungrab_button(X.AnyButton, X.AnyModifier)
+        window.set_input_focus(X.RevertToNone, X.CurrentTime)
+
+        # Assume that the focus transferred properly, and make the layer and
+        # border changes (if not, we'll call unfocus() to fix these things)
+        adjust_layer(wm, window, offset=utils.INCR_LAYER)
+        window.configure(border_pixel=wm_state.black_pixel)
+
+        # Make sure that the focus transferred properly
+        focus_state = wm_state.display.get_input_focus()
+        if focus_state.focus != window:
+            # If not, then nobody is focused
+            unfocus(wm, window)
+            wm_state.current_focus = None
+        
+    wm_state.update_layers = True

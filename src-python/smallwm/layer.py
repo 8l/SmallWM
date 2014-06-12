@@ -32,9 +32,9 @@ def bind_keys(key_events):
     Binds keyboard events to particular functions.
     """
     key_events.register(keyboard.LAYER_ABOVE,
-            functools.partial(adjust_layer, offset=utils.INCR_LAYER))
+            functools.partial(utils.adjust_layer, offset=utils.INCR_LAYER))
     key_events.register(keyboard.LAYER_BELOW,
-            functools.partial(adjust_layer, offset=-utils.INCR_LAYER))
+            functools.partial(utils.adjust_layer, offset=-utils.INCR_LAYER))
     key_events.register(keyboard.LAYER_TOP,
             functools.partial(set_layer, layer=utils.BOTTOM_LAYER))
     key_events.register(keyboard.LAYER_BOTTOM,
@@ -72,19 +72,6 @@ def update_layers(wm):
 
     if move_resize_placeholder is not None:
         move_resize_placeholder.raise_window()
-
-def adjust_layer(wm, window, *, offset):
-    """
-    Adjusts the layer of a window, relative to where it already is.
-    """
-    current_layer = wm.client_data[window].layer
-    current_layer += offset
-
-    # Avoid needless adjustments, by allowing only valid adjustments to cause
-    # restacking.
-    if utils.MIN_LAYER <= current_layer <= utils.MAX_LAYER:
-        wm.client_data[window].layer += offset
-        wm.wm_state.update_layers = True
 
 def set_layer(wm, window, *, layer):
     """
