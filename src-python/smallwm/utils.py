@@ -9,6 +9,9 @@ from Xlib import X
 MIN_LAYER = 1
 MAX_LAYER = 9
 
+# The default layer for clients to appear at
+DEFAULT_LAYER = 5
+
 def positive_int(text):
     """
     Converts a str into a positive int - if the str is not a valid number, or
