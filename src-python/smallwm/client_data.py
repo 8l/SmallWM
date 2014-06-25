@@ -117,11 +117,11 @@ class ClientData:
         }
 
         self.desktops = {
-            DESKTOP_INVISIBLE: set()k
+            DESKTOP_INVISIBLE: set(),
             DESKTOP_ALL: set(),
             DESKTOP_ICONS: set()
         }
-        for desktop in range(1 wm_state.max_desktops + 1):
+        for desktop in range(1, wm_state.max_desktops + 1):
             self.desktops[desktop] = set()
 
         self.focused = None
@@ -146,31 +146,27 @@ class ClientData:
         self.changes = []
         return changes
 
-    def add_client(self, client, normal_hints, wm_hints, geometry, attribs):
+    def add_client(self, client, wm_hints, geometry):
         """
         Registers a new client, which will appear on the current desktop.
 
         :param client: The client window to add.
-        :param Xlib.xobjects.icccm.WMNormalHints normal_hints: The hints which \
-            are given by the window.
-        :param Xlib.xobject.icccm.WMHints wm_hints: The second set of hints \
-            given by the window.
+        :param Xlib.xobject.icccm.WMHints wm_hints: The hints given by the \
+            window.
         :param Xlib.protocol.request.GetGeometry geometry: The location and \
             size of the window when it was created.
-        :param Xlib.protocol.request.GetWindowAttributes attribs: The \
-            attributes of the window when it was created.
         """
         self.push_change(ChangeFocus())
         self.focused = client
 
         self.push_change(ChangeClientDesktop(client))
-        if wm_hints.flag & Xutil.StateHint:
-            self.desktops[self.current_desktop
+        if not (wm_hints.flags & Xutil.StateHint):
+            self.desktops[self.current_desktop].add(client)
         else:
             # Handle the client's request to have itself mapped as it wants
             if wm_hints.initial_state == Xutil.NormalState:
                 self.desktops[self.current_desktop].add(client)
-            elif wm.hints.initial
+            elif wm.hints.initial_state == Xutil.IconicState:
                 self.desktops[DESKTOP_ICONS].add(client)
 
         self.push_change(ChangeLayer(client))
@@ -242,7 +238,7 @@ class ClientData:
         :raises ValueError: If the given layer is an invalid layer.
         """
         if layer not in self.layers:
-            raise ValueError('The layer {} is not a valid layer'.format(repl(layer)))
+            raise ValueError('The layer {} is not a valid layer'.format(repr(layer)))
 
         old_layer = self.find_layer(client)
         if old_layer != layer:
