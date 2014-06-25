@@ -68,9 +68,13 @@ class WithDefaultsTest(unittest.TestCase):
         Ensures that incorrect usage throws a TypeError:
 
          - Non-set non-default attributes are errors
+         - Keywords arguements which are not declared are errors.
         """
         with self.assertRaises(TypeError):
             x = ComplexStruct()
+
+        with self.assertRaises(TypeError):
+            x = ComplexStruct(a=1, x=2, y=3, z=4)
 
 if __name__ == '__main__':
     unittest.main()

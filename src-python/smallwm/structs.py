@@ -40,6 +40,13 @@ def Struct(name, bases, attrs):
             be passed in as a keyword argument. Arguments that are in
             __defaults__ can be overridden.
             """
+            # First, find any extra keys which aren't declared
+            slot_set = set(slots)
+            key_set = set(kwargs.keys())
+            if not key_set.issubset(slot_set):
+                raise TypeError('Extra keyword parameters given which are not '
+                        'declared in __slots__')
+
             for key in slots:
                 if key in kwargs:
                     setattr(self, key, kwargs[key])
