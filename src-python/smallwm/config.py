@@ -2,7 +2,7 @@
 Parses the configuration file, building the proper data structures to store
 configuration information.
 
-.. py:data DEFAULT_SHORTCUTS
+.. py:data:: DEFAULT_SHORTCUTS
 
     A list of all of the default key shortcuts, with each element containing
     the keyboard action (what, logically, happens when the key is pressed)
@@ -10,12 +10,12 @@ configuration information.
     in the configuration file) and the X key symbol (the physical key that X
     tells us was pressed).
 
-.. py:data SYSLOG_LEVEL
+.. py:data:: SYSLOG_LEVEL
     
     A mapping between textual names found in the configuration file, and the
     actual log levels given by syslog.
 
-.. py:data SNAP_DIRS
+.. py:data:: SNAP_DIRS
 
     A mapping between textual names found in the configuration file, and the
     direction in which a window is snapped.
@@ -80,44 +80,44 @@ class SmallWMConfig:
     Loads and parses the configuration file, and then stores the configuration
     values.
 
-    .. py:attribute log_mask
+    .. py:attribute:: log_mask
     
         The minimum level of messages to send to syslog.
 
-    .. py:attribute shell
+    .. py:attribute:: shell
 
         The shell to run on ``Super + LeftButton``.
 
-    .. py:attribute key_commands
+    .. py:attribute:: key_commands
 
         A mapping from X key symbols to keyboard actions.
 
-    .. py:attribute command_keys
+    .. py:attribute:: command_keys
 
         The reverse mapping of :attr:`key_commands`.
 
-    .. py:attribute num_desktops
+    .. py:attribute:: num_desktops
 
         The total number of desktops available to users.
 
-    .. py:attribute icon_width
+    .. py:attribute:: icon_width
     
         The width of icon windows.
 
-    .. py:attribute icon_height
+    .. py:attribute:: icon_height
 
         The height of icon windows.
 
-    .. py:attribute border_width
+    .. py:attribute:: border_width
 
         The width of the border applied to windows.
 
-    .. py:attribute class_actions
+    .. py:attribute:: class_actions
 
         A mapping from X11 classes to the list of actions applied to each
         window of that class.
 
-    .. py:attribute show_pixmaps
+    .. py:attribute:: show_pixmaps
 
         Whether or not to show application icons inside icon windows.
     """

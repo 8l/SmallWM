@@ -77,23 +77,23 @@ class Icon(metaclass=Struct):
     """
     The data used to draw icons for hidden windows.
 
-    .. py:attribute win
+    .. py:attribute:: win
 
         The window which the icon is drawn on.
 
-    .. py:attribute gc
+    .. py:attribute:: gc
 
         The graphics context which belongs to the icon.
 
-    .. py:attribute pixmap
+    .. py:attribute:: pixmap
 
         The application icon which can be shown on the icon window.
 
-    .. py:attribute pix_width
+    .. py:attribute:: pix_width
 
         The width of :attr:`pix_width`.
 
-    .. py:attribute pix_height
+    .. py:attribute:: pix_height
 
         The height of :attr:`pix_height`.
     """

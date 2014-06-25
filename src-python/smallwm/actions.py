@@ -19,7 +19,7 @@ class SetLayer(namedtuple('SetLayer', ['layer'])):
     This action indicates that a client should have a particular location in 
     the stacking order.
 
-    .. py:attribute layer
+    .. py:attribute:: layer
 
         The layer to put the client on. Note that this is a logical layer, and
         thus must be from [1,9].
@@ -30,23 +30,23 @@ class Snap(namedtuple('Snap', ['direction'])):
     This action indicates that a client should be snapped to a particular half
     of the screen.
 
-    .. py:attribute direction
+    .. py:attribute:: direction
         
         The side of the screen to snap the client towards.
 
-    .. py:attribute LEFT
+    .. py:attribute:: LEFT
         
         Snap a client to the left half of the screen.
 
-    .. py:attribute RIGHT
+    .. py:attribute:: RIGHT
         
         Snap a client to the right half of the screen.
 
-    .. py:attribute BOTTOM
+    .. py:attribute:: BOTTOM
 
         Snap a client to the bottom half of the screen.
 
-    .. py:attribute TOP
+    .. py:attribute:: TOP
         
         Snap a client to the top half of the screen.
     """
