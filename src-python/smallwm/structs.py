@@ -1,9 +1,32 @@
 """
-A place where the common data is defined.
+Defines the common data structures.
 """
+
 def Struct(name, bases, attrs):
     """
-    Creates a structure, which is read-write.
+    This class allows data to be defined purely declaratively, since classes 
+    which this class as their metaclass will have initializers generated for 
+    them.
+
+    For example, the following creates a class where the only required argument
+    is ``first_name``.::
+
+        >>> class Person(metaclass=Struct):
+        ...     __slots__ = 'first_name', 'last_name', 'age', 'gender'
+        ...     __defaults__ = { 'last_name': None, 'age': None, 
+        ...                     'gender': None }
+
+    Now, the Person class can be instantiated in a variety of ways.::
+
+        >>> tim = Person(first_name='Tim', last_name='the Enchanger', gender='male')
+        >>> artuhr = Person(first_name='Arthur', age=35, gender='male')
+        
+    Take, for example, the Person ``tim`` - is has the following attributes:
+
+    - ``first_name = "Tim"``
+    - ``last_name = "The Enchanter"``
+    - ``age = None``
+    - ``gender = "male"``
     """
     slots = attrs['__slots__']
 
@@ -46,37 +69,25 @@ def Struct(name, bases, attrs):
 class Icon(metaclass=Struct):
     """
     The data used to draw icons for hidden windows.
+
+    .. py:attribute win
+
+        The window which the icon is drawn on.
+
+    .. py:attribute gc
+
+        The graphics context which belongs to the icon.
+
+    .. py:attribute pixmap
+
+        The application icon which can be shown on the icon window.
+
+    .. py:attribute pix_width
+
+        The width of :attr:`pix_width`.
+
+    .. py:attribute pix_height
+
+        The height of :attr:`pix_height`.
     """
     __slots__ = 'win', 'gc', 'pixmap', 'pix_width', 'pix_height'
-
-class ClientData(metaclass=Struct):
-    """
-    The data which is managed for each individual client.
-    """
-    __slots__ = 'is_sticky', 'desktop', 'layer', 'icon', 'move_resize'
-    __defaults__ = {'is_sticky': False, 'icon': None, 'move_resize': None}
-
-class WMState(metaclass=Struct):
-    """
-    The state of the window manager related to X.
-    """
-    __slots__ = ('display', 'screen', 'root', 'current_desktop',
-            'screen_width', 'screen_height', 'current_focus',
-            'update_layers', 'update_desktops')
-    __defaults__ = {'current_desktop': 1, 'current_focus': None, 
-        'update_layers': False, 'update_desktops': False}
-
-class WMConfig(metaclass=Struct):
-    """
-    Configuration options given by the configuration file.
-    """
-    __slots__ = ('shell', 'key_commands', 'command_keys', 'max_desktops',
-        'icon_width', 'icon_height', 'border_width', 'class_actions', 
-        'show_pixmaps')
-
-class WM(metaclass=Struct):
-    """
-    The top-level state object storing all other Struct-derived objects.
-    """
-    __slots__ = 'wm_state', 'wm_config', 'client_data'
-    __defaults__ = {'client_data': {}}

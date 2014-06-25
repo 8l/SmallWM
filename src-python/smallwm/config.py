@@ -1,6 +1,24 @@
 """
 Parses the configuration file, building the proper data structures to store
 configuration information.
+
+.. py:data DEFAULT_SHORTCUTS
+
+    A list of all of the default key shortcuts, with each element containing
+    the keyboard action (what, logically, happens when the key is pressed)
+    along with the configuration descriptor (what name does that action have
+    in the configuration file) and the X key symbol (the physical key that X
+    tells us was pressed).
+
+.. py:data SYSLOG_LEVEL
+    
+    A mapping between textual names found in the configuration file, and the
+    actual log levels given by syslog.
+
+.. py:data SNAP_DIRS
+
+    A mapping between textual names found in the configuration file, and the
+    direction in which a window is snapped.
 """
 
 import configparser
@@ -62,16 +80,46 @@ class SmallWMConfig:
     Loads and parses the configuration file, and then stores the configuration
     values.
 
-    Members:
-     - log_mask :: The minimum level of messages to send to syslog
-     - shell :: The shell to run on Super + LClick
-     - key_commands :: A mapping from (key -> action)
-     - command_keys :: A mapping from (action -> key)
-     - num_desktops :: The total number of desktops
-     - icon_width, icon_height :: The size of icon windows
-     - border_width :: The width of the window border
-     - class_actions :: A map of (X11 class -> list of actions)
-     - show_pixmaps :: Whether or not to show pixmaps on icon windows
+    .. py:attribute log_mask
+    
+        The minimum level of messages to send to syslog.
+
+    .. py:attribute shell
+
+        The shell to run on ``Super + LeftButton``.
+
+    .. py:attribute key_commands
+
+        A mapping from X key symbols to keyboard actions.
+
+    .. py:attribute command_keys
+
+        The reverse mapping of :attr:`key_commands`.
+
+    .. py:attribute num_desktops
+
+        The total number of desktops available to users.
+
+    .. py:attribute icon_width
+    
+        The width of icon windows.
+
+    .. py:attribute icon_height
+
+        The height of icon windows.
+
+    .. py:attribute border_width
+
+        The width of the border applied to windows.
+
+    .. py:attribute class_actions
+
+        A mapping from X11 classes to the list of actions applied to each
+        window of that class.
+
+    .. py:attribute show_pixmaps
+
+        Whether or not to show application icons inside icon windows.
     """
     def __init__(self):
         self.log_mask = syslog.LOG_UPTO(syslog.LOG_WARNING)
@@ -101,27 +149,28 @@ class SmallWMConfig:
 
     def get_config_filename(self):
         """
-        Gets a path to the configuration file.
+        :return: The path to the configuration file.
         """
         return os.path.join(os.environ["HOME"], '.config', 'smallwm')
 
     def nonexistent_section(self, section):
         """
-        Prints an error to syslog about the nonexistent section.
+        Prints an error to syslog about a nonexistent section.
         """
         syslog.syslog(syslog.LOG_WARNING,
             'Nonexistent section {}'.format(section))
 
     def nonexistent_key(self, section, key):
         """
-        Prints an error to syslog about the nonexistent key.
+        Prints an error to syslog about a nonexistent key.
         """
         syslog.syslog(syslog.LOG_WARNING,
             'Nonexistant key {}.{}'.format(section, key))
 
     def parse(self):
         """
-        Parses out the configuration, and handles the sections.
+        Parses the configuration file, and dispatches each configuration option
+        to the appropriate handler.
         """
         try:
             parser = configparser.ConfigParser()
@@ -141,6 +190,14 @@ class SmallWMConfig:
     def parse_smallwm_body(self, key, value):
         """
         Parses the SmallWM core options.
+
+        - ``log-level``
+        - ``shell``
+        - ``desktops``
+        - ``icon-width``
+        - ``icon-height``
+        - ``icon-pixmaps``
+        - ``border-width``
         """
         if key == 'log-level':
             try:
@@ -190,19 +247,21 @@ class SmallWMConfig:
 
     def parse_class_action(self, key, value):
         """
-        Parses the class action syntax, into actions.
+        Parses the class action syntax into actions. A small grammar of the action
+        syntax is given below. The gist is that it is a list of comma-separated
+        actions.::
 
-        <actions> := {<action> {"," <action>}+}?
+            <actions> := {<action> {"," <action>}+}?
 
-        <action> := "stick"
-                |   "maximize"
-                |   "snap:" <snapdir>
-                |   "layer:" <int>
+            <action> := "stick"
+                    |   "maximize"
+                    |   "snap:" <snapdir>
+                    |   "layer:" <int>
 
-        <snapdir> := "left"
-                |   "right"
-                |   "top"
-                |   "bottom"
+            <snapdir> := "left"
+                    |   "right"
+                    |   "top"
+                    |   "bottom"
         """
         action_list = []
         self.class_actions[key] = action_list
