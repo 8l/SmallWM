@@ -69,10 +69,10 @@ SYSLOG_LEVEL = {
 }
 
 SNAP_DIRS = {
-    'left': actions.LEFT,
-    'right': actions.RIGHT,
-    'top': actions.TOP,
-    'bottom': actions.BOTTOM,
+    'left': actions.Snap.LEFT,
+    'right': actions.Snap.RIGHT,
+    'top': actions.Snap.TOP,
+    'bottom': actions.Snap.BOTTOM,
 }
 
 class SmallWMConfig:

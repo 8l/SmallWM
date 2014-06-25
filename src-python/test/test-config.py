@@ -240,7 +240,7 @@ class TestClassActions(unittest.TestCase):
             generate_config_file('actions', {'class': value})
             self.assertTrue(did_syslog_log_error())
 
-    VALID_LAYERS = {'layer:67': actions.SetLayer(67)}
+    VALID_LAYERS = {'layer:6': actions.SetLayer(6)}
     INVALID_LAYERS = {'layer:-182', 'layer:60.273', generate_short_noise()}
     def test_layer(self):
         """
@@ -249,10 +249,10 @@ class TestClassActions(unittest.TestCase):
         """
         self.do_parameterized_test(self.VALID_LAYERS, self.INVALID_LAYERS)
 
-    VALID_SNAPS = {'snap:left': actions.Snap(actions.LEFT),
-        'snap:right': actions.Snap(actions.RIGHT),
-        'snap:top': actions.Snap(actions.TOP),
-        'snap:bottom': actions.Snap(actions.BOTTOM)}
+    VALID_SNAPS = {'snap:left': actions.Snap(actions.Snap.LEFT),
+        'snap:right': actions.Snap(actions.Snap.RIGHT),
+        'snap:top': actions.Snap(actions.Snap.TOP),
+        'snap:bottom': actions.Snap(actions.Snap.BOTTOM)}
     INVALID_SNAPS = {'not-a-snap', '42', generate_short_noise()}
     def test_snaps(self):
         """
