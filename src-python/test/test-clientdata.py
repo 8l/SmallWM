@@ -82,7 +82,8 @@ class TestLayerManagement(unittest.TestCase):
 
         self.assertIn(X, self.manager.layers[new_layer])
         self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertEqual(events, [smallwm.client_data.ChangeLayer(X)])
+        self.assertEqual(events,
+            [smallwm.client_data.ChangeLayer(X, new_layer)])
         self.assertEqual(self.manager.find_layer(X), new_layer)
 
     def test_invalid_layer_set(self):
@@ -98,7 +99,8 @@ class TestLayerManagement(unittest.TestCase):
         """
         self.manager.set_layer(X, smallwm.utils.MAX_LAYER)
         self.assertIn(X, self.manager.layers[smallwm.utils.MAX_LAYER])
-        self.assertEqual(self.manager.flush_changes(), [smallwm.client_data.ChangeLayer(X)])
+        self.assertEqual(self.manager.flush_changes(), 
+            [smallwm.client_data.ChangeLayer(X, smallwm.utils.MAX_LAYER)])
 
         self.manager.up_layer(X)
         self.assertIn(X, self.manager.layers[smallwm.utils.MAX_LAYER])
@@ -111,7 +113,8 @@ class TestLayerManagement(unittest.TestCase):
         self.manager.set_layer(X, smallwm.utils.MIN_LAYER)
         self.assertIn(X, self.manager.layers[smallwm.utils.MIN_LAYER])
         self.assertEqual(self.manager.find_layer(X), smallwm.utils.MIN_LAYER)
-        self.assertEqual(self.manager.flush_changes(), [smallwm.client_data.ChangeLayer(X)])
+        self.assertEqual(self.manager.flush_changes(),
+            [smallwm.client_data.ChangeLayer(X, smallwm.utils.MIN_LAYER)])
 
         self.manager.down_layer(X)
         self.assertIn(X, self.manager.layers[smallwm.utils.MIN_LAYER])
@@ -126,16 +129,22 @@ class TestLayerManagement(unittest.TestCase):
          - Layer manager fires a ChangeLayer event
         """
         self.assertIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER + 1])
-        self.assertEqual(self.manager.find_layer(X), smallwm.utils.DEFAULT_LAYER)
+        self.assertNotIn(X, 
+            self.manager.layers[smallwm.utils.DEFAULT_LAYER + 1])
+        self.assertEqual(self.manager.find_layer(X), 
+            smallwm.utils.DEFAULT_LAYER)
 
         self.manager.up_layer(X)
         events = self.manager.flush_changes()
         
-        self.assertIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER + 1])
+        self.assertIn(X, 
+            self.manager.layers[smallwm.utils.DEFAULT_LAYER + 1])
         self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertEqual(events, [smallwm.client_data.ChangeLayer(X)])
-        self.assertEqual(self.manager.find_layer(X), smallwm.utils.DEFAULT_LAYER + 1)
+        self.assertEqual(events, 
+            [smallwm.client_data.ChangeLayer(X, 
+                smallwm.utils.DEFAULT_LAYER + 1)])
+        self.assertEqual(self.manager.find_layer(X), 
+            smallwm.utils.DEFAULT_LAYER + 1)
 
     def test_layer_down(self):
         """
@@ -145,16 +154,22 @@ class TestLayerManagement(unittest.TestCase):
          - Layer manager fires a ChangeLayer event
         """
         self.assertIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER - 1])
-        self.assertEqual(self.manager.find_layer(X), smallwm.utils.DEFAULT_LAYER)
+        self.assertNotIn(X, self.manager.layers[
+            smallwm.utils.DEFAULT_LAYER - 1])
+        self.assertEqual(self.manager.find_layer(X), 
+            smallwm.utils.DEFAULT_LAYER)
 
         self.manager.down_layer(X)
         events = self.manager.flush_changes()
         
-        self.assertIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER - 1])
+        self.assertIn(X, 
+            self.manager.layers[smallwm.utils.DEFAULT_LAYER - 1])
         self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertEqual(events, [smallwm.client_data.ChangeLayer(X)])
-        self.assertEqual(self.manager.find_layer(X), smallwm.utils.DEFAULT_LAYER - 1)
+        self.assertEqual(events, 
+            [smallwm.client_data.ChangeLayer(X, 
+                smallwm.utils.DEFAULT_LAYER - 1)])
+        self.assertEqual(self.manager.find_layer(X), 
+            smallwm.utils.DEFAULT_LAYER - 1)
 
     def test_client_next_desktop(self):
         """
@@ -165,12 +180,13 @@ class TestLayerManagement(unittest.TestCase):
             self.assertEqual(self.manager.find_desktop(X), desktop)
 
             self.manager.client_next_desktop(X)
-            self.assertEqual(self.manager.flush_changes(),
-                [smallwm.client_data.ChangeClientDesktop(X)])
             desktop += 1
 
             if desktop > MAX_DESKTOPS:
                 desktop = 1
+
+            self.assertEqual(self.manager.flush_changes(),
+                [smallwm.client_data.ChangeClientDesktop(X, desktop)])
 
     def test_client_prev_desktop(self):
         """
@@ -181,12 +197,13 @@ class TestLayerManagement(unittest.TestCase):
             self.assertEqual(self.manager.find_desktop(X), desktop)
 
             self.manager.client_prev_desktop(X)
-            self.assertEqual(self.manager.flush_changes(),
-                [smallwm.client_data.ChangeClientDesktop(X)])
             desktop -= 1
 
             if desktop < 1:
                 desktop += MAX_DESKTOPS
+
+            self.assertEqual(self.manager.flush_changes(),
+                [smallwm.client_data.ChangeClientDesktop(X, desktop)])
 
     def test_next_desktop(self):
         """
@@ -197,12 +214,13 @@ class TestLayerManagement(unittest.TestCase):
             self.assertEqual(self.manager.current_desktop, desktop)
             
             self.manager.next_desktop()
-            self.assertEqual(self.manager.flush_changes(),
-                [smallwm.client_data.ChangeCurrentDesktop()])
             desktop += 1
 
             if desktop > MAX_DESKTOPS:
                 desktop = 1
+
+            self.assertEqual(self.manager.flush_changes(),
+                [smallwm.client_data.ChangeCurrentDesktop(desktop)])
 
     def test_prev_desktop(self):
         """
@@ -213,12 +231,13 @@ class TestLayerManagement(unittest.TestCase):
             self.assertEqual(self.manager.current_desktop, desktop)
             
             self.manager.prev_desktop()
-            self.assertEqual(self.manager.flush_changes(),
-                [smallwm.client_data.ChangeCurrentDesktop()])
             desktop -= 1
 
             if desktop < 1:
                 desktop += MAX_DESKTOPS
+
+            self.assertEqual(self.manager.flush_changes(),
+                [smallwm.client_data.ChangeCurrentDesktop(desktop)])
 
 if __name__ == '__main__':
     unittest.main()

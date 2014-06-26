@@ -44,7 +44,7 @@ DESKTOP_DESTROY = -4
 DESKTOP_MOVING = -5
 DESKTOP_RESIZING = -5
 
-class ChangeLayer(namedtuple('ChangeLayer', ['window'])):
+class ChangeLayer(namedtuple('ChangeLayer', ['window', 'layer'])):
     """
     A notification that the layer of a client was changed.
     """
@@ -54,22 +54,22 @@ class ChangeFocus(namedtuple('ChangeSize', ['old_focus'])):
     A notification that the currently focused window was changed.
     """
 
-class ChangeClientDesktop(namedtuple('ChangeDesktop', ['window'])):
+class ChangeClientDesktop(namedtuple('ChangeDesktop', ['window', 'desktop'])):
     """
     A notification that the desktop of a client was changed.
     """
 
-class ChangeCurrentDesktop(namedtuple('ChangeCurrentDesktop', [])):
+class ChangeCurrentDesktop(namedtuple('ChangeCurrentDesktop', ['desktop'])):
     """
     A notification that the current desktop was changed.
     """
 
-class ChangeLocation(namedtuple('ChangeLocation', ['window'])):
+class ChangeLocation(namedtuple('ChangeLocation', ['window', 'x', 'y'])):
     """
     A notification that the location of a window was changed.
     """
 
-class ChangeSize(namedtuple('ChangeSize', ['window'])):
+class ChangeSize(namedtuple('ChangeSize', ['window', 'width', 'height'])):
     """
     A notification that the size of a window was changed.
     """
@@ -162,17 +162,21 @@ class ClientData:
         self.push_change(ChangeFocus(self.focused))
         self.focused = client
 
-        self.push_change(ChangeClientDesktop(client))
         if not (wm_hints.flags & Xutil.StateHint):
             self.desktops[self.current_desktop].add(client)
+            self.push_change(ChangeClientDesktop(client, 
+                self.current_desktop))
         else:
             # Handle the client's request to have itself mapped as it wants
             if wm_hints.initial_state == Xutil.NormalState:
                 self.desktops[self.current_desktop].add(client)
+                self.push_change(ChangeClientDesktop(client, 
+                    self.current_desktop))
             elif wm.hints.initial_state == Xutil.IconicState:
                 self.desktops[DESKTOP_ICONS].add(client)
+                self.push_change(ChangeClientDesktop(client, DESKTOP_ICONS))
 
-        self.push_change(ChangeLayer(client))
+        self.push_change(ChangeLayer(client, utils.DEFAULT_LAYER))
         self.layers[utils.DEFAULT_LAYER].add(client)
 
         self.location[client] = (geometry.x, geometry.y)
@@ -246,10 +250,11 @@ class ClientData:
         Moves a client up one layer.
 
         :param client: The client window to move up.
+        :raises KeyError: If the client is not known.
         """
         old_layer = self.find_layer(client)
         if old_layer < utils.MAX_LAYER:
-            self.push_change(ChangeLayer(client))
+            self.push_change(ChangeLayer(client, old_layer + 1))
 
             self.layers[old_layer].remove(client)
             self.layers[old_layer + 1].add(client)
@@ -259,10 +264,11 @@ class ClientData:
         Moves a client down one layer.
 
         :param client: The client window to move down.
+        :raises KeyError: If the client is not known.
         """
         old_layer = self.find_layer(client)
         if old_layer > utils.MIN_LAYER:
-            self.push_change(ChangeLayer(client))
+            self.push_change(ChangeLayer(client, old_layer - 1))
 
             self.layers[old_layer].remove(client)
             self.layers[old_layer - 1].add(client)
@@ -274,13 +280,14 @@ class ClientData:
         :param client: The client to set the layer of.
         :param int layer: The layer to set the client to.
         :raises ValueError: If the given layer is an invalid layer.
+        :raises KeyError: If the client is not known.
         """ 
         if layer not in self.layers:
             raise ValueError('The layer {} is not a valid layer'.format(repr(layer)))
 
         old_layer = self.find_layer(client)
         if old_layer != layer:
-            self.push_change(ChangeLayer(client))
+            self.push_change(ChangeLayer(client, layer))
 
             self.layers[old_layer].remove(client)
             self.layers[layer].add(client)
@@ -290,6 +297,7 @@ class ClientData:
         Moves a client to the desktop after the current desktop.
 
         :param client: The client to move.
+        :raises KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
 
@@ -298,19 +306,21 @@ class ClientData:
             # there are special methods which manage those desktops.
             raise ValueError('Cannot change from a special desktop')
 
-        self.push_change(ChangeClientDesktop(client))
         self.desktops[old_desktop].remove(client)
         if old_desktop + 1 in self.desktops:
             # We're not at the end
             self.desktops[old_desktop + 1].add(client)
+            self.push_change(ChangeClientDesktop(client, old_desktop + 1))
         else:
             self.desktops[1].add(client)
+            self.push_change(ChangeClientDesktop(client, 1))
 
     def client_prev_desktop(self, client):
         """
         Moves a client to the desktop before the current desktop.
 
         :param client: The client to move.
+        :raises KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
 
@@ -319,30 +329,34 @@ class ClientData:
             # there are special methods which manage those desktops.
             raise ValueError('Cannot change from a special desktop')
 
-        self.push_change(ChangeClientDesktop(client))
         self.desktops[old_desktop].remove(client)
         if old_desktop - 1 in self.desktops:
             # We're not at the beginning
             self.desktops[old_desktop - 1].add(client)
+            self.push_change(ChangeClientDesktop(client, old_desktop - 1))
         else:
             self.desktops[self.wm_state.max_desktops].add(client)
+            self.push_change(ChangeClientDesktop(client, 
+                self.wm_state.max_desktops))
 
     def next_desktop(self):
         """
         Moves the current desktop ahead one.
         """
-        self.push_change(ChangeCurrentDesktop())
         if self.current_desktop == self.wm_state.max_desktops:
             self.current_desktop = 1
         else:
             self.current_desktop += 1
 
+        self.push_change(ChangeCurrentDesktop(self.current_desktop))
+
     def prev_desktop(self):
         """
         Moves the current desktop back one.
         """
-        self.push_change(ChangeCurrentDesktop())
         if self.current_desktop == 1:
             self.current_desktop = self.wm_state.max_desktops
         else:
             self.current_desktop -= 1
+
+        self.push_change(ChangeCurrentDesktop(self.current_desktop))
