@@ -360,3 +360,43 @@ class ClientData:
             self.current_desktop -= 1
 
         self.push_change(ChangeCurrentDesktop(self.current_desktop))
+
+    def iconify(self, client):
+        """
+        Marks the client as an icon.
+
+        :param client: The client to iconify.
+        :raises ValueError: If the client is already iconified.
+        :raises KeyError: If the client is not known.
+        """
+        old_desktop = self.find_desktop(client)
+
+        if old_desktop == DESKTOP_ICONS:
+            # This icon is already iconified
+            raise ValueError('The client is already iconified')
+        elif old_desktop in (DESKTOP_INVISIBLE, DESKTOP_MOVING,
+                DESKTOP_RESIZING):
+            # You cannot iconfiy something that isn't visible, so this request
+            # makes no sense
+            raise ValueError('Cannot iconify hidden client')
+
+        self.push_change(ChangeClientDesktop(client, DESKTOP_ICONS))
+        self.desktops[old_desktop].remove(client)
+        self.desktops[DESKTOP_ICONS].add(client)
+
+    def deiconify(self, client):
+        """
+        Unmarks the client as an icon.
+
+        :param client: The client to iconify.
+        :raises ValueError: If the client is not already iconified.
+        :raises KeyError: If the client is not known.
+        """
+        old_desktop = self.find_desktop(client)
+
+        if old_desktop != DESKTOP_ICONS:
+            raise ValueError('The client is not currently iconified')
+
+        self.push_change(ChangeClientDesktop(client, self.current_desktop))
+        self.desktops[DESKTOP_ICONS].remove(client)
+        self.desktops[self.current_desktop].add(client)

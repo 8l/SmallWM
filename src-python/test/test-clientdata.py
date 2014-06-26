@@ -13,6 +13,7 @@ import smallwm.client_data, smallwm.structs, smallwm.utils
 
 # A unique token which stands in as a client
 X = object()
+Y = object()
 
 MAX_DESKTOPS = 5
 class WMState(metaclass=smallwm.structs.Struct):
@@ -238,6 +239,42 @@ class TestLayerManagement(unittest.TestCase):
 
             self.assertEqual(self.manager.flush_changes(),
                 [smallwm.client_data.ChangeCurrentDesktop(desktop)])
+
+    def test_iconify(self):
+        """
+        Iconifies a window, and then ensure that it is iconified.
+        
+        And then deiconify it, and then ensure that it was deiconified.
+        """
+        self.manager.iconify(X)
+        self.assertEqual(self.manager.flush_changes(),
+            [smallwm.client_data.ChangeClientDesktop(X, 
+                smallwm.client_data.DESKTOP_ICONS)])
+        self.assertEqual(self.manager.find_desktop(X), 
+            smallwm.client_data.DESKTOP_ICONS)
+
+        self.manager.deiconify(X)
+        self.assertEqual(self.manager.flush_changes(),
+            [smallwm.client_data.ChangeClientDesktop(X, 
+                self.manager.current_desktop)])
+        self.assertEqual(self.manager.find_desktop(X), 
+            self.manager.current_desktop)
+
+    def test_bad_iconify(self):
+        """
+        Ensures that invalid attempts to iconify raise the appropriate 
+        exceptions.
+        """
+        # Nonexistent clients raise KeyErrors
+        with self.assertRaises(KeyError):
+            self.manager.iconify(Y)
+
+        with self.assertRaises(KeyError):
+            self.manager.deiconify(Y)
+
+        # Deiconifying non-iconified clients raises ValueErrors
+        with self.assertRaises(ValueError):
+            self.manager.deiconify(X)
 
 if __name__ == '__main__':
     unittest.main()
