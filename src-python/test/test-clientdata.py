@@ -14,9 +14,10 @@ import smallwm.client_data, smallwm.structs, smallwm.utils
 # A unique token which stands in as a client
 X = object()
 
+MAX_DESKTOPS = 5
 class WMState(metaclass=smallwm.structs.Struct):
     __slots__ = ('max_desktops',)
-    __defaults__ = {'max_desktops': 5}
+    __defaults__ = {'max_desktops': MAX_DESKTOPS}
 
 class FakeHints(metaclass=smallwm.structs.Struct):
     __slots__ = ('flags', 'input', 'initial_state', 'icon_pixmap', 'icon_window', 
@@ -48,6 +49,24 @@ class TestLayerManagement(unittest.TestCase):
 
         # Get rid of the excess events
         self.manager.flush_changes()
+
+    def test_finder_functions(self):
+        """
+        Make sure that the find_* methods return proper values, and raise
+        the proper exceptions.
+        """
+        self.assertTrue(self.manager.is_client(X))
+        self.assertEqual(self.manager.find_desktop(X), 1)
+        self.assertEqual(self.manager.find_layer(X), 
+            smallwm.utils.DEFAULT_LAYER)
+       
+        self.manager.remove_client(X)
+        self.assertFalse(self.manager.is_client(X))
+        with self.assertRaises(KeyError):
+            self.manager.find_desktop(X)
+
+        with self.assertRaises(KeyError):
+            self.manager.find_layer(X)
 
     def test_layer_set(self):
         """
@@ -136,6 +155,70 @@ class TestLayerManagement(unittest.TestCase):
         self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
         self.assertEqual(events, [smallwm.client_data.ChangeLayer(X)])
         self.assertEqual(self.manager.find_layer(X), smallwm.utils.DEFAULT_LAYER - 1)
+
+    def test_client_next_desktop(self):
+        """
+        Moves the client through all desktops, starting at 1 and going ahead.
+        """
+        desktop = 1
+        for x in range(25): # Some arbitrary number, > MAX_DESKTOPS
+            self.assertEqual(self.manager.find_desktop(X), desktop)
+
+            self.manager.client_next_desktop(X)
+            self.assertEqual(self.manager.flush_changes(),
+                [smallwm.client_data.ChangeClientDesktop(X)])
+            desktop += 1
+
+            if desktop > MAX_DESKTOPS:
+                desktop = 1
+
+    def test_client_prev_desktop(self):
+        """
+        Moves the client through all desktops, starting at 1 and going back.
+        """
+        desktop = 1
+        for x in range(25):
+            self.assertEqual(self.manager.find_desktop(X), desktop)
+
+            self.manager.client_prev_desktop(X)
+            self.assertEqual(self.manager.flush_changes(),
+                [smallwm.client_data.ChangeClientDesktop(X)])
+            desktop -= 1
+
+            if desktop < 1:
+                desktop += MAX_DESKTOPS
+
+    def test_next_desktop(self):
+        """
+        Cycles through all the desktops, starting at 1 and going ahead.
+        """
+        desktop = 1
+        for x in range(25): # An arbitrary number > MAX_DESKTOPS
+            self.assertEqual(self.manager.current_desktop, desktop)
+            
+            self.manager.next_desktop()
+            self.assertEqual(self.manager.flush_changes(),
+                [smallwm.client_data.ChangeCurrentDesktop()])
+            desktop += 1
+
+            if desktop > MAX_DESKTOPS:
+                desktop = 1
+
+    def test_prev_desktop(self):
+        """
+        Cycles through all the desktops, starting at 1 and going back.
+        """
+        desktop = 1
+        for x in range(25): # An arbitrary number > MAX_DESKTOPS
+            self.assertEqual(self.manager.current_desktop, desktop)
+            
+            self.manager.prev_desktop()
+            self.assertEqual(self.manager.flush_changes(),
+                [smallwm.client_data.ChangeCurrentDesktop()])
+            desktop -= 1
+
+            if desktop < 1:
+                desktop += MAX_DESKTOPS
 
 if __name__ == '__main__':
     unittest.main()

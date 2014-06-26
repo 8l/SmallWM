@@ -37,16 +37,19 @@ from Xlib import Xutil
 
 from smallwm import utils
 
-DESKTOP_INVISIBLE = None
-DESKTOP_ALL = -1
-DESKTOP_ICONS = -2
+DESKTOP_INVISIBLE = -1
+DESKTOP_ALL = -2
+DESKTOP_ICONS = -3
+DESKTOP_DESTROY = -4
+DESKTOP_MOVING = -5
+DESKTOP_RESIZING = -5
 
 class ChangeLayer(namedtuple('ChangeLayer', ['window'])):
     """
     A notification that the layer of a client was changed.
     """
 
-class ChangeFocus(namedtuple('ChangeSize', [])):
+class ChangeFocus(namedtuple('ChangeSize', ['old_focus'])):
     """
     A notification that the currently focused window was changed.
     """
@@ -156,7 +159,7 @@ class ClientData:
         :param Xlib.protocol.request.GetGeometry geometry: The location and \
             size of the window when it was created.
         """
-        self.push_change(ChangeFocus())
+        self.push_change(ChangeFocus(self.focused))
         self.focused = client
 
         self.push_change(ChangeClientDesktop(client))
@@ -174,6 +177,41 @@ class ClientData:
 
         self.location[client] = (geometry.x, geometry.y)
         self.size[client] = (geometry.width, geometry.height)
+
+    def remove_client(self, client):
+        """
+        Removes a client from the window manager. Note that this pushes out no
+        events, since the only way this could be called is when the window is
+        actually deleted, and at that point, nobody cares about those events.
+
+        :param client: The client window to remove.
+        """
+        self.focused = client
+
+        client_desktop = self.find_desktop(client)
+        self.desktops[client_desktop].remove(client)
+
+        client_layer = self.find_layer(client)
+        self.layers[client_layer].remove(client)
+
+        del self.location[client]
+        del self.size[client]
+
+    def is_client(self, window):
+        """
+        Checks to see if a window is actually a client.
+        
+        :param window: The window to check.
+        :return: ``True`` if the window is registered, ``False`` otherwise.
+        """
+        # Every client must have an associated desktop, whether it be 'real'
+        # or 'virtual' (like DESKTOP_ALL or DESKTOP_ICON)
+        try:
+            self.find_desktop(window)
+        except KeyError:
+            return False
+        else:
+            return True
 
     def find_desktop(self, client):
         """
@@ -236,7 +274,7 @@ class ClientData:
         :param client: The client to set the layer of.
         :param int layer: The layer to set the client to.
         :raises ValueError: If the given layer is an invalid layer.
-        """
+        """ 
         if layer not in self.layers:
             raise ValueError('The layer {} is not a valid layer'.format(repr(layer)))
 
@@ -246,3 +284,65 @@ class ClientData:
 
             self.layers[old_layer].remove(client)
             self.layers[layer].add(client)
+
+    def client_next_desktop(self, client):
+        """
+        Moves a client to the desktop after the current desktop.
+
+        :param client: The client to move.
+        """
+        old_desktop = self.find_desktop(client)
+
+        if old_desktop in (DESKTOP_INVISIBLE, DESKTOP_ALL, DESKTOP_ICONS):
+            # These are invalid desktops for a user to try to change from -
+            # there are special methods which manage those desktops.
+            raise ValueError('Cannot change from a special desktop')
+
+        self.push_change(ChangeClientDesktop(client))
+        self.desktops[old_desktop].remove(client)
+        if old_desktop + 1 in self.desktops:
+            # We're not at the end
+            self.desktops[old_desktop + 1].add(client)
+        else:
+            self.desktops[1].add(client)
+
+    def client_prev_desktop(self, client):
+        """
+        Moves a client to the desktop before the current desktop.
+
+        :param client: The client to move.
+        """
+        old_desktop = self.find_desktop(client)
+
+        if old_desktop in (DESKTOP_INVISIBLE, DESKTOP_ALL, DESKTOP_ICONS):
+            # These are invalid desktops for a user to try to change from -
+            # there are special methods which manage those desktops.
+            raise ValueError('Cannot change from a special desktop')
+
+        self.push_change(ChangeClientDesktop(client))
+        self.desktops[old_desktop].remove(client)
+        if old_desktop - 1 in self.desktops:
+            # We're not at the beginning
+            self.desktops[old_desktop - 1].add(client)
+        else:
+            self.desktops[self.wm_state.max_desktops].add(client)
+
+    def next_desktop(self):
+        """
+        Moves the current desktop ahead one.
+        """
+        self.push_change(ChangeCurrentDesktop())
+        if self.current_desktop == self.wm_state.max_desktops:
+            self.current_desktop = 1
+        else:
+            self.current_desktop += 1
+
+    def prev_desktop(self):
+        """
+        Moves the current desktop back one.
+        """
+        self.push_change(ChangeCurrentDesktop())
+        if self.current_desktop == 1:
+            self.current_desktop = self.wm_state.max_desktops
+        else:
+            self.current_desktop -= 1
