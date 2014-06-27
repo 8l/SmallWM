@@ -455,3 +455,55 @@ class ClientData:
         self.desktops[self.current_desktop].add(client)
 
         self.focus(client)
+
+    def start_moving(self, client):
+        """
+        Marks the client to begin moving.
+
+        :param client: The client to start moving.
+        :raises ValueError: If the client cannot be moved.
+        :raises KeyError: If the client is not known.
+        """
+        old_desktop = self.find_desktop(client)
+
+        if old_desktop == DESKTOP_MOVING:
+            # This icon is already moving
+            raise ValueError('The client is already moving')
+        elif len(self.desktops[DESKTOP_MOVING]) != 0:
+            # There is already another moving window
+            raise ValueError('Another window is being moved')
+        elif old_desktop in (DESKTOP_RESIZING, DESKTOP_ICONS):
+            # You cannot iconfiy something that isn't visible, so this request
+            # makes no sense
+            raise ValueError('Cannot move a hidden client')
+
+        self.push_change(ChangeClientDesktop(client, DESKTOP_MOVING))
+        self.desktops[old_desktop].remove(client)
+        self.desktops[DESKTOP_MOVING].add(client)
+
+        # A window which is being moved cannot have the focus
+        self.check_focus(client)
+
+    def stop_moving(self, client, new_geometry):
+        """
+        Stops moving a client, and updates its position.
+
+        :raises ValueError: If the client is not already moving.
+        :raises KeyError: If the client is not known.
+        """
+        old_desktop = self.find_desktop(client)
+        
+        if old_desktop != DESKTOP_MOVING:
+            raise ValueError('The client is not currently moving')
+
+        self.push_change(ChangeClientDesktop(client, self.current_desktop))
+        self.desktops[DESKTOP_MOVING].remove(client)
+        self.desktops[self.current_desktop].add(client)
+
+        # Move the client, if its coordinates changed
+        self.location[client] = (new_geometry.x, new_geometry.y)
+        self.push_change(ChangeLocation(client, new_geometry.x, 
+            new_geometry.y))
+
+        # Focus the newly relocated client
+        self.focus(client)
