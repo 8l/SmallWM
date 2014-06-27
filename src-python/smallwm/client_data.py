@@ -1,13 +1,6 @@
 """
 Declares the storage used for client data.
 
-.. py:data:: DESKTOP_INVISIBLE
-
-    One of the rules governing the :class:`ClientData` structure is that all
-    windows stored inside it *must* exist on a desktop. Since there can be
-    windows which are not visible (such as when they are iconified), there must
-    be a special place for them to be -- this is ``DESKTOP_INVISIBLE``.
-
 .. py:data:: DESKTOP_ALL
 
     Similar to :const:`DESKTOP_INVISIBLE`, but for use with windows that are
@@ -37,12 +30,14 @@ from Xlib import Xutil
 
 from smallwm import utils
 
-DESKTOP_INVISIBLE = -1
 DESKTOP_ALL = -2
 DESKTOP_ICONS = -3
-DESKTOP_DESTROY = -4
-DESKTOP_MOVING = -5
+DESKTOP_MOVING = -4
 DESKTOP_RESIZING = -5
+
+VIRTUAL_DESKTOPS = {DESKTOP_ALL, DESKTOP_ICONS, DESKTOP_MOVING, 
+    DESKTOP_RESIZING}
+INVISIBLE_DESKTOPS = {DESKTOP_ICONS, DESKTOP_MOVING, DESKTOP_RESIZING}
 
 class ChangeLayer(namedtuple('ChangeLayer', ['window', 'layer'])):
     """
@@ -120,9 +115,10 @@ class ClientData:
         }
 
         self.desktops = {
-            DESKTOP_INVISIBLE: set(),
             DESKTOP_ALL: set(),
-            DESKTOP_ICONS: set()
+            DESKTOP_ICONS: set(),
+            DESKTOP_MOVING: set(),
+            DESKTOP_RESIZING: set()
         }
         for desktop in range(1, wm_state.max_desktops + 1):
             self.desktops[desktop] = set()
@@ -301,7 +297,7 @@ class ClientData:
         """
         old_desktop = self.find_desktop(client)
 
-        if old_desktop in (DESKTOP_INVISIBLE, DESKTOP_ALL, DESKTOP_ICONS):
+        if old_desktop in VIRTUAL_DESKTOPS:
             # These are invalid desktops for a user to try to change from -
             # there are special methods which manage those desktops.
             raise ValueError('Cannot change from a special desktop')
@@ -324,7 +320,7 @@ class ClientData:
         """
         old_desktop = self.find_desktop(client)
 
-        if old_desktop in (DESKTOP_INVISIBLE, DESKTOP_ALL, DESKTOP_ICONS):
+        if old_desktop in VIRTUAL_DESKTOPS:
             # These are invalid desktops for a user to try to change from -
             # there are special methods which manage those desktops.
             raise ValueError('Cannot change from a special desktop')
@@ -366,7 +362,7 @@ class ClientData:
         Marks the client as an icon.
 
         :param client: The client to iconify.
-        :raises ValueError: If the client is already iconified.
+        :raises ValueError: If the client cannot be iconified.
         :raises KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
@@ -374,8 +370,7 @@ class ClientData:
         if old_desktop == DESKTOP_ICONS:
             # This icon is already iconified
             raise ValueError('The client is already iconified')
-        elif old_desktop in (DESKTOP_INVISIBLE, DESKTOP_MOVING,
-                DESKTOP_RESIZING):
+        elif old_desktop in INVISIBLE_DESKTOPS:
             # You cannot iconfiy something that isn't visible, so this request
             # makes no sense
             raise ValueError('Cannot iconify hidden client')
