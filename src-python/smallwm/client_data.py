@@ -44,7 +44,7 @@ class ChangeLayer(namedtuple('ChangeLayer', ['window', 'layer'])):
     A notification that the layer of a client was changed.
     """
 
-class ChangeFocus(namedtuple('ChangeSize', ['old_focus'])):
+class ChangeFocus(namedtuple('ChangeSize', ['old', 'new'])):
     """
     A notification that the currently focused window was changed.
     """
@@ -155,9 +155,6 @@ class ClientData:
         :param Xlib.protocol.request.GetGeometry geometry: The location and \
             size of the window when it was created.
         """
-        self.push_change(ChangeFocus(self.focused))
-        self.focused = client
-
         if not (wm_hints.flags & Xutil.StateHint):
             self.desktops[self.current_desktop].add(client)
             self.push_change(ChangeClientDesktop(client, 
@@ -178,6 +175,8 @@ class ClientData:
         self.location[client] = (geometry.x, geometry.y)
         self.size[client] = (geometry.width, geometry.height)
 
+        self.focus(client)
+
     def remove_client(self, client):
         """
         Removes a client from the window manager. Note that this pushes out no
@@ -186,7 +185,8 @@ class ClientData:
 
         :param client: The client window to remove.
         """
-        self.focused = client
+        # You can't have a nonexistent window with the focus
+        self.check_focus(client)
 
         client_desktop = self.find_desktop(client)
         self.desktops[client_desktop].remove(client)
@@ -212,6 +212,47 @@ class ClientData:
             return False
         else:
             return True
+
+    def focus(self, client):
+        """
+        Focuses a client, and pushes a notification about this change.
+
+        :param client: The client to focus.
+        :raises ValueError: The client is not visible.
+        :raises KeyError: The client is not known.
+        """
+        client_desktop = self.find_desktop(client)
+        if client_desktop != self.current_desktop:
+            # Cannot focus something that isn't visible
+            raise ValueError('Cannot focus non-visible window')
+
+        old_focus = self.focused
+        self.focused = client
+        self.push_change(ChangeFocus(old_focus, client))
+
+    def check_focus(self, client):
+        """
+        Checks to see if the given client is currently focused.
+
+        If it is, then it is unfocused.
+
+        :param client: The client to check the focus of.
+        :raises KeyError: The client is not known.
+        """
+        if not self.is_client(client):
+            raise KeyError('The given client does not exist')
+
+        if self.focused == client:
+            self.unfocus()
+
+    def unfocus(self):
+        """
+        Unfocuses the current client, whatever client that is.
+        """
+        if self.focused is not None:
+            old_focus = self.focused
+            self.focused = None
+            self.push_change(ChangeFocus(old_focus, None))
 
     def find_desktop(self, client):
         """
@@ -311,6 +352,10 @@ class ClientData:
             self.desktops[1].add(client)
             self.push_change(ChangeClientDesktop(client, 1))
 
+        # A window which is now on a different desktop cannot be focused,
+        # so unfocus it if necessary.
+        self.check_focus(client)
+
     def client_prev_desktop(self, client):
         """
         Moves a client to the desktop before the current desktop.
@@ -335,6 +380,10 @@ class ClientData:
             self.push_change(ChangeClientDesktop(client, 
                 self.wm_state.max_desktops))
 
+        # A window which is now on a different desktop cannot be focused,
+        # so unfocus it if necessary.
+        self.check_focus(client)
+
     def next_desktop(self):
         """
         Moves the current desktop ahead one.
@@ -346,6 +395,9 @@ class ClientData:
 
         self.push_change(ChangeCurrentDesktop(self.current_desktop))
 
+        # Since the currently focused window is no longer visible, unfocus it
+        self.unfocus()
+
     def prev_desktop(self):
         """
         Moves the current desktop back one.
@@ -356,6 +408,9 @@ class ClientData:
             self.current_desktop -= 1
 
         self.push_change(ChangeCurrentDesktop(self.current_desktop))
+
+        # Since the currently focused window is no longer visible, unfocus it
+        self.unfocus()
 
     def iconify(self, client):
         """
@@ -379,6 +434,9 @@ class ClientData:
         self.desktops[old_desktop].remove(client)
         self.desktops[DESKTOP_ICONS].add(client)
 
+        # If the newly iconified client *was* focused, it can't be any more
+        self.check_focus(client)
+
     def deiconify(self, client):
         """
         Unmarks the client as an icon.
@@ -395,3 +453,5 @@ class ClientData:
         self.push_change(ChangeClientDesktop(client, self.current_desktop))
         self.desktops[DESKTOP_ICONS].remove(client)
         self.desktops[self.current_desktop].add(client)
+
+        self.focus(client)

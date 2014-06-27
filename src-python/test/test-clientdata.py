@@ -176,6 +176,7 @@ class TestLayerManagement(unittest.TestCase):
         """
         Moves the client through all desktops, starting at 1 and going ahead.
         """
+        focus = X
         desktop = 1
         for x in range(25): # Some arbitrary number, > MAX_DESKTOPS
             self.assertEqual(self.manager.find_desktop(X), desktop)
@@ -186,14 +187,25 @@ class TestLayerManagement(unittest.TestCase):
             if desktop > MAX_DESKTOPS:
                 desktop = 1
 
-            self.assertEqual(self.manager.flush_changes(),
-                [smallwm.client_data.ChangeClientDesktop(X, desktop)])
+            if focus is X:
+                # Only the first iteration should change this, since X
+                # was focused in the beginning
+                self.assertEqual(self.manager.flush_changes(),
+                    [smallwm.client_data.ChangeClientDesktop(X,
+                        desktop),
+                     smallwm.client_data.ChangeFocus(X, None)])
+                focus = None
+            else:
+                self.assertEqual(self.manager.flush_changes(),
+                    [smallwm.client_data.ChangeClientDesktop(X,
+                        desktop)])
 
     def test_client_prev_desktop(self):
         """
         Moves the client through all desktops, starting at 1 and going back.
         """
         desktop = 1
+        focus = X
         for x in range(25):
             self.assertEqual(self.manager.find_desktop(X), desktop)
 
@@ -203,13 +215,46 @@ class TestLayerManagement(unittest.TestCase):
             if desktop < 1:
                 desktop += MAX_DESKTOPS
 
-            self.assertEqual(self.manager.flush_changes(),
-                [smallwm.client_data.ChangeClientDesktop(X, desktop)])
+            if focus is X:
+                # Only the first iteration should change this, since X
+                # was focused in the beginning
+                self.assertEqual(self.manager.flush_changes(),
+                    [smallwm.client_data.ChangeClientDesktop(X,
+                        desktop),
+                     smallwm.client_data.ChangeFocus(X, None)])
+                focus = None
+            else:
+                self.assertEqual(self.manager.flush_changes(),
+                    [smallwm.client_data.ChangeClientDesktop(X,
+                        desktop)])
+
+    def test_client_desktop_invalid_states(self):
+        """
+        Tests that moving a client to a different desktop, starting from an
+        invalid desktop (for example, if the client is iconified) causes
+        a ValueError.
+
+        Also tests that moving nonexistent desktops causes a KeyError.
+        """
+        with self.assertRaises(KeyError):
+            self.manager.client_next_desktop(Y)
+
+        with self.assertRaises(KeyError):
+            self.manager.client_prev_desktop(Y)
+
+        # Changing the desktop of an iconified client is invalid
+        self.manager.iconify(X)
+        with self.assertRaises(ValueError):
+            self.manager.client_next_desktop(X)
+
+        with self.assertRaises(ValueError):
+            self.manager.client_prev_desktop(X)
 
     def test_next_desktop(self):
         """
         Cycles through all the desktops, starting at 1 and going ahead.
         """
+        focus = X
         desktop = 1
         for x in range(25): # An arbitrary number > MAX_DESKTOPS
             self.assertEqual(self.manager.current_desktop, desktop)
@@ -220,13 +265,22 @@ class TestLayerManagement(unittest.TestCase):
             if desktop > MAX_DESKTOPS:
                 desktop = 1
 
-            self.assertEqual(self.manager.flush_changes(),
-                [smallwm.client_data.ChangeCurrentDesktop(desktop)])
+            if focus is X:
+                # Only the first iteration should change this, since X
+                # was focused in the beginning
+                self.assertEqual(self.manager.flush_changes(),
+                    [smallwm.client_data.ChangeCurrentDesktop(desktop),
+                     smallwm.client_data.ChangeFocus(X, None)])
+                focus = None
+            else:
+                self.assertEqual(self.manager.flush_changes(),
+                    [smallwm.client_data.ChangeCurrentDesktop(desktop)])
 
     def test_prev_desktop(self):
         """
         Cycles through all the desktops, starting at 1 and going back.
         """
+        focus = X
         desktop = 1
         for x in range(25): # An arbitrary number > MAX_DESKTOPS
             self.assertEqual(self.manager.current_desktop, desktop)
@@ -237,8 +291,16 @@ class TestLayerManagement(unittest.TestCase):
             if desktop < 1:
                 desktop += MAX_DESKTOPS
 
-            self.assertEqual(self.manager.flush_changes(),
-                [smallwm.client_data.ChangeCurrentDesktop(desktop)])
+            if focus is X:
+                # Only the first iteration should change this, since X
+                # was focused in the beginning
+                self.assertEqual(self.manager.flush_changes(),
+                    [smallwm.client_data.ChangeCurrentDesktop(desktop),
+                     smallwm.client_data.ChangeFocus(X, None)])
+                focus = None
+            else:
+                self.assertEqual(self.manager.flush_changes(),
+                    [smallwm.client_data.ChangeCurrentDesktop(desktop)])
 
     def test_iconify(self):
         """
@@ -249,14 +311,16 @@ class TestLayerManagement(unittest.TestCase):
         self.manager.iconify(X)
         self.assertEqual(self.manager.flush_changes(),
             [smallwm.client_data.ChangeClientDesktop(X, 
-                smallwm.client_data.DESKTOP_ICONS)])
+                smallwm.client_data.DESKTOP_ICONS),
+             smallwm.client_data.ChangeFocus(X, None)])
         self.assertEqual(self.manager.find_desktop(X), 
             smallwm.client_data.DESKTOP_ICONS)
 
         self.manager.deiconify(X)
         self.assertEqual(self.manager.flush_changes(),
             [smallwm.client_data.ChangeClientDesktop(X, 
-                self.manager.current_desktop)])
+                self.manager.current_desktop),
+             smallwm.client_data.ChangeFocus(None, X)])
         self.assertEqual(self.manager.find_desktop(X), 
             self.manager.current_desktop)
 
