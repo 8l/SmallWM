@@ -481,8 +481,9 @@ class ClientData:
         if old_desktop == DESKTOP_MOVING:
             # This icon is already moving
             raise ValueError('The client is already moving')
-        elif len(self.desktops[DESKTOP_MOVING]) != 0:
-            # There is already another moving window
+        elif (len(self.desktops[DESKTOP_MOVING]) != 0 or 
+                len(self.desktops[DESKTOP_RESIZING]) != 0):
+            # There is already another moving / resizing window
             raise ValueError('Another window is being moved')
         elif old_desktop in (DESKTOP_RESIZING, DESKTOP_ICONS):
             # You cannot move something that isn't visible, so this 
@@ -509,6 +510,54 @@ class ClientData:
         self.location[client] = (new_geometry.x, new_geometry.y)
         self.push_change(ChangeLocation(client, new_geometry.x, 
             new_geometry.y))
+
+        # Focus the newly relocated client
+        self.focus(client)
+
+    def start_resizing(self, client):
+        """
+        Marks the client to begin resizing.
+
+        :param client: The client to start resizing.
+        :raises ValueError: If the client cannot be resized.
+        :raises KeyError: If the client is not known.
+        """
+        old_desktop = self.find_desktop(client)
+
+        if old_desktop == DESKTOP_RESIZING:
+            # This icon is already moving
+            raise ValueError('The client is already moving')
+        elif (len(self.desktops[DESKTOP_MOVING]) != 0 or 
+                len(self.desktops[DESKTOP_RESIZING]) != 0):
+            # There is already another moving / resizing window
+            raise ValueError('Another window is being moved')
+        elif old_desktop in (DESKTOP_MOVING, DESKTOP_ICONS):
+            # You cannot move something that isn't visible, so this 
+            # request makes no sense
+            raise ValueError('Cannot move a hidden client')
+
+        self._move_to_desktop(client, old_desktop, DESKTOP_RESIZING)
+
+    def stop_resizing(self, client, new_geometry):
+        """
+        Stops resizing a client, and updates its size.
+
+        :raises ValueError: If the client is not already resizing.
+        :raises KeyError: If the client is not known.
+        """
+        old_desktop = self.find_desktop(client)
+        
+        if old_desktop != DESKTOP_RESIZING:
+            raise ValueError('The client is not currently resizing')
+
+        if new_geometry.width <= 0 or new_geometry.height <= 0:
+            raise ValueError('The client cannot be given 0 width or 0 height')
+
+        self._move_to_desktop(client, DESKTOP_RESIZING, self.current_desktop)
+
+        # Resize the client, if its dimensions changed
+        self.size[client] = (new_geometry.height, new_geometry.width)
+        self.push_change(ChangeSize(client, new_geometry.width, new_geometry.height))
 
         # Focus the newly relocated client
         self.focus(client)

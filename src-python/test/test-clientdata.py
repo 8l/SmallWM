@@ -31,7 +31,7 @@ class Geometry(metaclass=smallwm.structs.Struct):
     __slots__ = ('depth', 'sequence_number', 'root', 
         'x', 'y', 'width', 'height', 'border_width')
     __defaults__ = {'depth': 0, 'sequence_number': 0, 'root': 0, 
-        'x': 0, 'y': 0, 'width': 0, 'height': 0, 'border_width': 0}
+        'x': 0, 'y': 0, 'width': 5, 'height': 5, 'border_width': 0}
 
 class TestLayerManagement(unittest.TestCase):
     """
@@ -316,6 +316,17 @@ class TestLayerManagement(unittest.TestCase):
             self.manager.prev_desktop()
         self.manager.stop_moving(X, Geometry())
 
+        # You can't change desktops while resizing a window
+        self.manager.start_resizing(X)
+        with self.assertRaises(ValueError):
+            self.manager.next_desktop()
+        self.manager.stop_resizing(X, Geometry())
+
+        self.manager.start_resizing(X)
+        with self.assertRaises(ValueError):
+            self.manager.prev_desktop()
+        self.manager.stop_resizing(X, Geometry())
+
     def test_iconify(self):
         """
         Iconifies a window, and then ensure that it is iconified.
@@ -364,6 +375,12 @@ class TestLayerManagement(unittest.TestCase):
             self.manager.iconify(X)
         self.manager.stop_moving(X, Geometry())
 
+        # You can't iconify something that is being resized
+        self.manager.start_resizing(X)
+        with self.assertRaises(ValueError):
+            self.manager.iconify(X)
+        self.manager.stop_resizing(X, Geometry())
+
     def test_moving(self):
         """
         Starts, and then stops, moving a window to make sure the correct
@@ -399,6 +416,10 @@ class TestLayerManagement(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.manager.start_moving(Y)
 
+        # You can't stop moving unless previously moving
+        with self.assertRaises(ValueError):
+            self.manager.stop_moving(X, Geometry())
+
         # You can't move an already moving window
         self.manager.start_moving(X)
         with self.assertRaises(ValueError):
@@ -420,6 +441,79 @@ class TestLayerManagement(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.manager.start_moving(Y)
         self.manager.stop_moving(X, Geometry())
+
+        # You can't move a window while another is being resized
+        self.manager.start_resizing(Y)
+        with self.assertRaises(ValueError):
+            self.manager.start_moving(X)
+        self.manager.stop_resizing(Y, Geometry())
+
+    def test_resizing(self):
+        """
+        Starts, and then stops, resizing a window to make sure the correct
+        events are handled.
+        """
+        self.manager.start_resizing(X)
+        self.assertEqual(self.manager.flush_changes(),
+            [smallwm.client_data.ChangeFocus(X, None), 
+             smallwm.client_data.ChangeClientDesktop(X, 
+                smallwm.client_data.DESKTOP_RESIZING)])
+        self.assertEqual(self.manager.find_desktop(X),
+            smallwm.client_data.DESKTOP_RESIZING)
+
+        new_size = Geometry()
+        new_size.width = 42
+        new_size.height = 42
+        self.manager.stop_resizing(X, new_size)
+
+        self.assertEqual(self.manager.flush_changes(),
+            [smallwm.client_data.ChangeClientDesktop(X, 
+                self.manager.current_desktop),
+             smallwm.client_data.ChangeSize(X, 42, 42),
+             smallwm.client_data.ChangeFocus(None, X)])
+        self.assertEqual(self.manager.find_desktop(X),
+            self.manager.current_desktop)
+
+    def test_bad_resizing(self):
+        """
+        Tests scenarios which are invalid, and ensures that exceptions are
+        raised.
+        """
+        # You can't resize a nonexistent client
+        with self.assertRaises(KeyError):
+            self.manager.start_resizing(Y)
+
+        # You can't stop resizing unless previously resizing
+        with self.assertRaises(ValueError):
+            self.manager.stop_resizing(X, Geometry())
+
+        # You can't resize an already resizing window
+        self.manager.start_resizing(X)
+        with self.assertRaises(ValueError):
+            self.manager.start_resizing(X)
+        self.manager.stop_resizing(X, Geometry())
+
+        # You can't resize an iconified window
+        self.manager.iconify(X)
+        with self.assertRaises(ValueError):
+            self.manager.start_resizing(X)
+        self.manager.deiconify(X)
+
+        # You can't resize two windows at once
+        hints = FakeHints()
+        geometry = Geometry()
+        self.manager.add_client(Y, hints, geometry)
+
+        self.manager.start_resizing(X)
+        with self.assertRaises(ValueError):
+            self.manager.start_resizing(Y)
+        self.manager.stop_resizing(X, Geometry())
+
+        # You can't resize a window while another is being moved
+        self.manager.start_moving(Y)
+        with self.assertRaises(ValueError):
+            self.manager.start_resizing(X)
+        self.manager.stop_moving(Y, Geometry())
 
 if __name__ == '__main__':
     unittest.main()
