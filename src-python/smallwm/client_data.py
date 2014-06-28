@@ -3,29 +3,31 @@ Declares the storage used for client data.
 
 .. py:data:: DESKTOP_ALL
 
-    Similar to :const:`DESKTOP_INVISIBLE`, but for use with windows that are
-    displayed on every desktop.
+    A virtual desktop (i.e. a desktop which the user is not capable of
+    displaying directly, but which exists as a part of the program logic)
+    which identifies windows which are visible on all desktops.
 
 .. py:data:: DESKTOP_ICONS
 
-    Similar to :const:`DESKTOP_ICONS` -- each window that belongs to this
-    desktop is iconified.
+    A virtual desktop which is used to mark iconified windows.
 
 .. py:data:: DESKTOP_MOVING
 
-    Similar to :const:`DESKTOP_MOVING` -- there can only ever be one or zero 
-    windows on this desktop, and if there is a window, it is currently being
-    moved. Note that this desktop and :const:`DESKTOP_RESIZING` are mutually
-    exclusive -- if there is a window on one, then there cannot be a window
-    on the other.
+    A virtual desktop which is used to indicate that a window is currently
+    moving. Note that only one window is capable of being on this desktop *or*
+    on :const:`DESKTOP_RESIZING` - both cannot be in use at the same time.
+    Also, only one window can ever be on this layer.
 
 .. py:data:: DESKTOP_RESIZING
 
-    Similar to :const:`DESKTOP_RESIZING`, but for the window which is currently
-    being resized.
+    A virtual desktop which is used to indicate that a window is currently
+    being resized. Note that only one window is capable of being on this 
+    desktop *or* on :const:`DESKTOP_MOVING` - both cannot be in use at the 
+    same time. Also, only one window can ever be on this layer.
 """
 
 from collections import namedtuple
+import itertools
 from Xlib import Xutil
 
 from smallwm import utils
@@ -221,8 +223,8 @@ class ClientData:
         Focuses a client, and pushes a notification about this change.
 
         :param client: The client to focus.
-        :raises ValueError: The client is not visible.
-        :raises KeyError: The client is not known.
+        :raise ValueError: The client is not visible.
+        :raise KeyError: The client is not known.
         """
         client_desktop = self.find_desktop(client)
         if client_desktop != self.current_desktop:
@@ -240,7 +242,7 @@ class ClientData:
         If it is, then it is unfocused.
 
         :param client: The client to check the focus of.
-        :raises KeyError: The client is not known.
+        :raise KeyError: The client is not known.
         """
         if not self.is_client(client):
             raise KeyError('The given client does not exist')
@@ -263,7 +265,7 @@ class ClientData:
 
         :param client: The client to find.
         :return: The desktop that the client is on.
-        :raises KeyError: If the client isn't listed in the desktop list.
+        :raise KeyError: If the client isn't listed in the desktop list.
         """
         for desktop, win_list in self.desktops.items():
             if client in win_list:
@@ -277,7 +279,7 @@ class ClientData:
 
         :param client: The client to find.
         :return: The layer that the client is on.
-        :raises KeyError: If the client isn't listed in the layer list.
+        :raise KeyError: If the client isn't listed in the layer list.
         """
         for layer, win_list in self.layers.items():
             if client in win_list:
@@ -314,7 +316,7 @@ class ClientData:
         Moves a client up one layer.
 
         :param client: The client window to move up.
-        :raises KeyError: If the client is not known.
+        :raise KeyError: If the client is not known.
         """
         old_layer = self.find_layer(client)
         if old_layer < utils.MAX_LAYER:
@@ -328,7 +330,7 @@ class ClientData:
         Moves a client down one layer.
 
         :param client: The client window to move down.
-        :raises KeyError: If the client is not known.
+        :raise KeyError: If the client is not known.
         """
         old_layer = self.find_layer(client)
         if old_layer > utils.MIN_LAYER:
@@ -343,8 +345,8 @@ class ClientData:
 
         :param client: The client to set the layer of.
         :param int layer: The layer to set the client to.
-        :raises ValueError: If the given layer is an invalid layer.
-        :raises KeyError: If the client is not known.
+        :raise ValueError: If the given layer is an invalid layer.
+        :raise KeyError: If the client is not known.
         """ 
         if layer not in self.layers:
             raise ValueError('The layer {} is not a valid layer'.format(repr(layer)))
@@ -361,7 +363,7 @@ class ClientData:
         Moves a client to the desktop after the current desktop.
 
         :param client: The client to move.
-        :raises KeyError: If the client is not known.
+        :raise KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
 
@@ -380,7 +382,7 @@ class ClientData:
         Moves a client to the desktop before the current desktop.
 
         :param client: The client to move.
-        :raises KeyError: If the client is not known.
+        :raise KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
 
@@ -437,8 +439,8 @@ class ClientData:
         Marks the client as an icon.
 
         :param client: The client to iconify.
-        :raises ValueError: If the client cannot be iconified.
-        :raises KeyError: If the client is not known.
+        :raise ValueError: If the client cannot be iconified.
+        :raise KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
 
@@ -457,8 +459,8 @@ class ClientData:
         Unmarks the client as an icon.
 
         :param client: The client to iconify.
-        :raises ValueError: If the client is not already iconified.
-        :raises KeyError: If the client is not known.
+        :raise ValueError: If the client is not already iconified.
+        :raise KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
 
@@ -473,8 +475,8 @@ class ClientData:
         Marks the client to begin moving.
 
         :param client: The client to start moving.
-        :raises ValueError: If the client cannot be moved.
-        :raises KeyError: If the client is not known.
+        :raise ValueError: If the client cannot be moved.
+        :raise KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
 
@@ -496,8 +498,8 @@ class ClientData:
         """
         Stops moving a client, and updates its position.
 
-        :raises ValueError: If the client is not already moving.
-        :raises KeyError: If the client is not known.
+        :raise ValueError: If the client is not already moving.
+        :raise KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
         
@@ -519,8 +521,8 @@ class ClientData:
         Marks the client to begin resizing.
 
         :param client: The client to start resizing.
-        :raises ValueError: If the client cannot be resized.
-        :raises KeyError: If the client is not known.
+        :raise ValueError: If the client cannot be resized.
+        :raise KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
 
@@ -542,8 +544,8 @@ class ClientData:
         """
         Stops resizing a client, and updates its size.
 
-        :raises ValueError: If the client is not already resizing.
-        :raises KeyError: If the client is not known.
+        :raise ValueError: If the client is not already resizing.
+        :raise KeyError: If the client is not known.
         """
         old_desktop = self.find_desktop(client)
         
