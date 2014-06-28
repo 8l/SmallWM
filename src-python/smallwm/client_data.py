@@ -30,6 +30,9 @@ from Xlib import Xutil
 
 from smallwm import utils
 
+# Note that none of these can *ever* be zero, since some code below counts
+# down through the list of desktops. If it were to hit zero, then it would
+# fail by continuing down the list of virtual desktops.
 DESKTOP_ALL = -2
 DESKTOP_ICONS = -3
 DESKTOP_MOVING = -4
@@ -186,7 +189,7 @@ class ClientData:
         :param client: The client window to remove.
         """
         # You can't have a nonexistent window with the focus
-        self.check_focus(client)
+        self.unfocus_if_focused(client)
 
         client_desktop = self.find_desktop(client)
         self.desktops[client_desktop].remove(client)
@@ -230,7 +233,7 @@ class ClientData:
         self.focused = client
         self.push_change(ChangeFocus(old_focus, client))
 
-    def check_focus(self, client):
+    def unfocus_if_focused(self, client):
         """
         Checks to see if the given client is currently focused.
 
@@ -281,6 +284,30 @@ class ClientData:
                 return layer
 
         raise KeyError('Could not find the layer of a client')
+
+    def _move_to_desktop(self, client, old_desktop, new_desktop, 
+            unfocus_all=False):
+        """
+        Moves a client to a different desktop, while handling unfocusing.
+
+        :param client: The client to move.
+        :param old_desktop: The desktop the client is currently on.
+        :param new_desktop: The desktop to move the client to.
+        :param unfocus_all: If ``True``, any focused window is unfocused. \
+            If ``False`` (the default), then only the given client window \
+            is unfocused.
+        """
+        if old_desktop == new_desktop:
+            return
+
+        if not unfocus_all:
+            self.unfocus_if_focused(client)
+        else:
+            self.unfocus()
+        
+        self.desktops[old_desktop].remove(client)
+        self.desktops[new_desktop].add(client)
+        self.push_change(ChangeClientDesktop(client, new_desktop))
 
     def up_layer(self, client):
         """
@@ -343,18 +370,10 @@ class ClientData:
             # there are special methods which manage those desktops.
             raise ValueError('Cannot change from a special desktop')
 
-        self.desktops[old_desktop].remove(client)
-        if old_desktop + 1 in self.desktops:
-            # We're not at the end
-            self.desktops[old_desktop + 1].add(client)
-            self.push_change(ChangeClientDesktop(client, old_desktop + 1))
-        else:
-            self.desktops[1].add(client)
-            self.push_change(ChangeClientDesktop(client, 1))
-
-        # A window which is now on a different desktop cannot be focused,
-        # so unfocus it if necessary.
-        self.check_focus(client)
+        next_desktop = old_desktop + 1
+        if next_desktop not in self.desktops:
+            next_desktop = 1
+        self._move_to_desktop(client, old_desktop, next_desktop)
 
     def client_prev_desktop(self, client):
         """
@@ -370,24 +389,23 @@ class ClientData:
             # there are special methods which manage those desktops.
             raise ValueError('Cannot change from a special desktop')
 
-        self.desktops[old_desktop].remove(client)
-        if old_desktop - 1 in self.desktops:
-            # We're not at the beginning
-            self.desktops[old_desktop - 1].add(client)
-            self.push_change(ChangeClientDesktop(client, old_desktop - 1))
-        else:
-            self.desktops[self.wm_state.max_desktops].add(client)
-            self.push_change(ChangeClientDesktop(client, 
-                self.wm_state.max_desktops))
-
-        # A window which is now on a different desktop cannot be focused,
-        # so unfocus it if necessary.
-        self.check_focus(client)
+        next_desktop = old_desktop - 1
+        if next_desktop not in self.desktops:
+            next_desktop = self.wm_state.max_desktops
+        self._move_to_desktop(client, old_desktop, next_desktop)
 
     def next_desktop(self):
         """
         Moves the current desktop ahead one.
         """
+        # We cannot do this if a window is being moved or resized
+        if (len(self.desktops[DESKTOP_MOVING]) > 0 or
+                len(self.desktops[DESKTOP_RESIZING]) > 0):
+            raise ValueError('Cannot change desktops while move/resize in progress')
+
+        # Since the currently focused window is no longer visible, unfocus it
+        self.unfocus()
+
         if self.current_desktop == self.wm_state.max_desktops:
             self.current_desktop = 1
         else:
@@ -395,22 +413,24 @@ class ClientData:
 
         self.push_change(ChangeCurrentDesktop(self.current_desktop))
 
-        # Since the currently focused window is no longer visible, unfocus it
-        self.unfocus()
-
     def prev_desktop(self):
         """
         Moves the current desktop back one.
         """
+        # We cannot do this if a window is being moved or resized
+        if (len(self.desktops[DESKTOP_MOVING]) > 0 or
+                len(self.desktops[DESKTOP_RESIZING]) > 0):
+            raise ValueError('Cannot change desktops while move/resize in progress')
+
+        # Since the currently focused window is no longer visible, unfocus it
+        self.unfocus()
+
         if self.current_desktop == 1:
             self.current_desktop = self.wm_state.max_desktops
         else:
             self.current_desktop -= 1
 
         self.push_change(ChangeCurrentDesktop(self.current_desktop))
-
-        # Since the currently focused window is no longer visible, unfocus it
-        self.unfocus()
 
     def iconify(self, client):
         """
@@ -430,12 +450,7 @@ class ClientData:
             # makes no sense
             raise ValueError('Cannot iconify hidden client')
 
-        self.push_change(ChangeClientDesktop(client, DESKTOP_ICONS))
-        self.desktops[old_desktop].remove(client)
-        self.desktops[DESKTOP_ICONS].add(client)
-
-        # If the newly iconified client *was* focused, it can't be any more
-        self.check_focus(client)
+        self._move_to_desktop(client, old_desktop, DESKTOP_ICONS)
 
     def deiconify(self, client):
         """
@@ -450,10 +465,7 @@ class ClientData:
         if old_desktop != DESKTOP_ICONS:
             raise ValueError('The client is not currently iconified')
 
-        self.push_change(ChangeClientDesktop(client, self.current_desktop))
-        self.desktops[DESKTOP_ICONS].remove(client)
-        self.desktops[self.current_desktop].add(client)
-
+        self._move_to_desktop(client, DESKTOP_ICONS, self.current_desktop)
         self.focus(client)
 
     def start_moving(self, client):
@@ -473,16 +485,11 @@ class ClientData:
             # There is already another moving window
             raise ValueError('Another window is being moved')
         elif old_desktop in (DESKTOP_RESIZING, DESKTOP_ICONS):
-            # You cannot iconfiy something that isn't visible, so this request
-            # makes no sense
+            # You cannot move something that isn't visible, so this 
+            # request makes no sense
             raise ValueError('Cannot move a hidden client')
 
-        self.push_change(ChangeClientDesktop(client, DESKTOP_MOVING))
-        self.desktops[old_desktop].remove(client)
-        self.desktops[DESKTOP_MOVING].add(client)
-
-        # A window which is being moved cannot have the focus
-        self.check_focus(client)
+        self._move_to_desktop(client, old_desktop, DESKTOP_MOVING)
 
     def stop_moving(self, client, new_geometry):
         """
@@ -496,9 +503,7 @@ class ClientData:
         if old_desktop != DESKTOP_MOVING:
             raise ValueError('The client is not currently moving')
 
-        self.push_change(ChangeClientDesktop(client, self.current_desktop))
-        self.desktops[DESKTOP_MOVING].remove(client)
-        self.desktops[self.current_desktop].add(client)
+        self._move_to_desktop(client, DESKTOP_MOVING, self.current_desktop)
 
         # Move the client, if its coordinates changed
         self.location[client] = (new_geometry.x, new_geometry.y)
