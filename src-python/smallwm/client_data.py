@@ -150,6 +150,38 @@ class ClientData:
         self.changes = []
         return changes
 
+    def iter_desktop(self, desktop):
+        """
+        Produces an iterator which produces all the clients on the given desktop.
+
+        :param desktop: The desktop to get the clients of.
+        :return: An iterator of all clients on the desktop.
+        :raises KeyError: If the given desktop doesn't exist.
+        """
+        return iter(self.desktops[desktop])
+
+    def iter_visible(self):
+        """
+        Produces an iterator which traverses all of the visible windows.
+
+        :return: An iterator of all clients which are visible.
+        """
+        visible_clients = self.desktops[self.current_desktop] | self.desktops[DESKTOP_ALL]
+        return iter(visible_clients)
+
+    def iter_by_layer(self):
+        """
+        Produces an iterator which produces all the clients, in layer order,
+        which are currently visible.
+
+        :return: An iterator of all visible clients, from bottom to top.
+        """
+        visible_clients = self.desktops[self.current_desktop] | self.desktops[DESKTOP_ALL]
+        for layer in range(utils.MIN_LAYER, utils.MAX_LAYER + 1):
+            clients_on_layer = self.layers[layer] & visible_clients
+            for client in clients_on_layer:
+                yield client
+
     def add_client(self, client, wm_hints, geometry):
         """
         Registers a new client, which will appear on the current desktop.
@@ -288,28 +320,48 @@ class ClientData:
         raise KeyError('Could not find the layer of a client')
 
     def _move_to_desktop(self, client, old_desktop, new_desktop, 
-            unfocus_all=False):
+            unfocus=True):
         """
         Moves a client to a different desktop, while handling unfocusing.
 
         :param client: The client to move.
         :param old_desktop: The desktop the client is currently on.
         :param new_desktop: The desktop to move the client to.
-        :param unfocus_all: If ``True``, any focused window is unfocused. \
-            If ``False`` (the default), then only the given client window \
-            is unfocused.
+        :param unfocus: If ``True``, then unfocus the window before moving \
+            it. If ``False``, do not modify the focus.
         """
         if old_desktop == new_desktop:
             return
 
-        if not unfocus_all:
+        if unfocus:
             self.unfocus_if_focused(client)
-        else:
-            self.unfocus()
         
         self.desktops[old_desktop].remove(client)
         self.desktops[new_desktop].add(client)
         self.push_change(ChangeClientDesktop(client, new_desktop))
+
+    def toggle_stick(self, client):
+        """
+        Toggles the stickiness of a client. If the client is on DESKTOP_ALL,
+        move it to the current desktop - if the client is not on DESKTOP_ALL,
+        move it onto another desktop.
+
+        :param client: The client to (un)stick.
+        :raises KeyError: If the client doesn't exist.
+        :raises ValueError: If the client cannot be stuck.
+        """
+        desktop = self.find_desktop(client)
+        if desktop in INVISIBLE_DESKTOPS:
+            # We can't stick something that's not visible
+            raise ValueError('Cannot stick an invisible window')
+        elif desktop == DESKTOP_ALL:
+            # Unstick a stuck window
+            self._move_to_desktop(client, DESKTOP_ALL, self.current_desktop,
+                unfocus=False)
+        else:
+            # Stick an unstuck window
+            self._move_to_desktop(client, self.current_desktop, DESKTOP_ALL,
+                unfocus=False)
 
     def up_layer(self, client):
         """
