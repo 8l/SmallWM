@@ -61,6 +61,48 @@ class TestLayerManagement(unittest.TestCase):
         # Get rid of the excess events
         self.manager.flush_changes()
 
+    def test_visible(self):
+        # First, ensure that the client is visible by default
+        self.assertTrue(self.manager.is_visible(X))
+
+        # Moving, resizing, or iconified windows should not be visible
+        self.manager.start_moving(X)
+        self.assertFalse(self.manager.is_visible(X))
+        self.manager.stop_moving(X, Geometry())
+        self.assertTrue(self.manager.is_visible(X))
+
+        self.manager.start_resizing(X)
+        self.assertFalse(self.manager.is_visible(X))
+        self.manager.stop_resizing(X, Geometry())
+        self.assertTrue(self.manager.is_visible(X))
+
+        self.manager.iconify(X)
+        self.assertFalse(self.manager.is_visible(X))
+        self.manager.deiconify(X)
+        self.assertTrue(self.manager.is_visible(X))
+
+        # Windows on different desktops are not visible - ensure that this is
+        # the case by first moving the current desktop, then by moving the client
+        self.manager.next_desktop()
+        self.assertFalse(self.manager.is_visible(X))
+        self.manager.prev_desktop()
+        self.assertTrue(self.manager.is_visible(X))
+
+        self.manager.prev_desktop()
+        self.assertFalse(self.manager.is_visible(X))
+        self.manager.next_desktop()
+        self.assertTrue(self.manager.is_visible(X))
+
+        self.manager.client_next_desktop(X)
+        self.assertFalse(self.manager.is_visible(X))
+        self.manager.client_prev_desktop(X)
+        self.assertTrue(self.manager.is_visible(X))
+
+        self.manager.client_prev_desktop(X)
+        self.assertFalse(self.manager.is_visible(X))
+        self.manager.client_next_desktop(X)
+        self.assertTrue(self.manager.is_visible(X))
+
     def test_finder_functions(self):
         # Make sure that the `find_*` functions return proper results
         self.assertTrue(self.manager.is_client(X))
@@ -562,6 +604,40 @@ class TestLayerManagement(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.manager.start_resizing(X)
         self.manager.stop_moving(Y, Geometry())
+
+    def test_stick(self):
+        # First, ensure that the given window is visible at first
+        self.assertTrue(self.manager.is_visible(X))
+
+        # Next, move to the next desktop and make sure that it isn't visible.
+        # Note that the focus change is unimportant to us, but we do have to
+        # keep it in mind to avoid failing the test.
+        self.manager.next_desktop()
+        self.assertEqual(self.manager.flush_changes(),
+            [smallwm.client_data.ChangeFocus(X, None),
+             smallwm.client_data.ChangeCurrentDesktop(
+                self.manager.current_desktop)])
+        self.assertFalse(self.manager.is_visible(X))
+
+        # Stick the client and make sure it regains its visibility
+        self.manager.toggle_stick(X)
+        self.assertEqual(self.manager.flush_changes(),
+            [smallwm.client_data.ChangeClientDesktop(X, 
+                smallwm.client_data.DESKTOP_ALL)])
+        self.assertTrue(self.manager.is_visible(X))
+        
+        # Unstick the client and make sure it loses its visibility on
+        # a different desktop
+        self.manager.toggle_stick(X)
+        old_desktop = self.manager.current_desktop
+        self.manager.next_desktop()
+
+        self.assertEqual(self.manager.flush_changes(),
+            [smallwm.client_data.ChangeClientDesktop(X, 
+                old_desktop),
+             smallwm.client_data.ChangeCurrentDesktop(
+                 self.manager.current_desktop)])
+        self.assertFalse(self.manager.is_visible(X))
 
 if __name__ == '__main__':
     unittest.main()

@@ -150,6 +150,16 @@ class ClientData:
         self.changes = []
         return changes
 
+    def is_visible(self, client):
+        """
+        Ensures that a client is visible.
+
+        :param client: The client to check.
+        :return: ``True`` if the client is visible, ``False`` otherwise.
+        :raises KeyError: If the client does not exist.
+        """
+        return self.find_desktop(client) in (self.current_desktop, DESKTOP_ALL)
+
     def iter_desktop(self, desktop):
         """
         Produces an iterator which produces all the clients on the given desktop.
@@ -360,8 +370,7 @@ class ClientData:
                 unfocus=False)
         else:
             # Stick an unstuck window
-            self._move_to_desktop(client, self.current_desktop, DESKTOP_ALL,
-                unfocus=False)
+            self._move_to_desktop(client, desktop, DESKTOP_ALL, unfocus=False)
 
     def up_layer(self, client):
         """
