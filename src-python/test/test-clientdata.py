@@ -12,8 +12,18 @@ sys.path.append(os.path.join(*os.path.split(sys.path[0])[:-1]))
 import smallwm.client_data, smallwm.structs, smallwm.utils
 
 # A unique token which stands in as a client
-X = object()
-Y = object()
+class Stringifyable:
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
+X = Stringifyable("<X window>")
+Y = Stringifyable("<Y window>")
 
 MAX_DESKTOPS = 5
 class WMState(metaclass=smallwm.structs.Struct):
@@ -67,6 +77,73 @@ class TestLayerManagement(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             self.manager.find_layer(X)
+
+    def test_iter_functions(self):
+        # Add another client on a different, so that the iterators have 
+        # something to work from
+        self.manager.next_desktop()
+
+        hints = FakeHints()
+        geometry = Geometry()
+        self.manager.add_client(Y, hints, geometry)
+
+        # Ensure that the desktop list shows only the new client, since the
+        # desktop was switched before adding it
+        clients = set(self.manager.iter_visible())
+        self.assertEqual(clients, {Y})
+
+        clients = set(self.manager.iter_desktop(
+            self.manager.current_desktop))
+        self.assertEqual(clients, {Y})
+
+        layered_clients = list(self.manager.iter_by_layer())
+        self.assertEqual(layered_clients, [Y])
+
+        # Switch back and ensure that the desktop list shows the original client
+        self.manager.prev_desktop()
+        clients = set(self.manager.iter_visible())
+        self.assertEqual(clients, {X})
+
+        clients = set(self.manager.iter_desktop(
+            self.manager.current_desktop))
+        self.assertEqual(clients, {X})
+
+        layered_clients = list(self.manager.iter_by_layer())
+        self.assertEqual(layered_clients, [X])
+
+        # Move the two onto the same desktop and ensure that the desktop list
+        # shows them both.
+        self.manager.client_prev_desktop(Y)
+        clients = set(self.manager.iter_visible())
+        self.assertEqual(clients, {X, Y})
+
+        # Put X above Y and ensure that the proper order is returned
+        self.manager.up_layer(X)
+        layered_clients = list(self.manager.iter_by_layer())
+        self.assertEqual(layered_clients, [Y, X])
+
+        # Put Y above X
+        self.manager.down_layer(X)
+        self.manager.up_layer(Y)
+        layered_clients = list(self.manager.iter_by_layer())
+        self.assertEqual(layered_clients, [X, Y])
+
+        # Stick Y, move to another desktop, and ensure that Y is still
+        # listed as visible
+        self.manager.toggle_stick(Y)
+        self.manager.next_desktop()
+
+        clients = set(self.manager.iter_visible())
+        self.assertEqual(clients, {Y})
+
+        clients = set(self.manager.iter_desktop(
+            self.manager.current_desktop))
+        # This is the case since `iter_desktop` gets only clients on 
+        # a single desktop, ignoring DESKTOP_ALL
+        self.assertEqual(clients, set())
+
+        layered_clients = list(self.manager.iter_by_layer())
+        self.assertEqual(layered_clients, [Y])
 
     def test_layer_set(self):
         new_layer = 8
