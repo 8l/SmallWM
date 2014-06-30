@@ -114,19 +114,13 @@ class ClientData:
         self.changes = []
         self.current_desktop = 1
 
-        self.layers = {
-            layer: set() for layer in 
-            range(utils.MIN_LAYER, utils.MAX_LAYER + 1)
-        }
+        layer_names = list(range(utils.MIN_LAYER, utils.MAX_LAYER + 1))
+        self.layers = utils.BijectiveSetMapping(*layer_names)
 
-        self.desktops = {
-            DESKTOP_ALL: set(),
-            DESKTOP_ICONS: set(),
-            DESKTOP_MOVING: set(),
-            DESKTOP_RESIZING: set()
-        }
-        for desktop in range(1, wm_state.max_desktops + 1):
-            self.desktops[desktop] = set()
+        desktop_names = [DESKTOP_ALL, DESKTOP_ICONS, DESKTOP_MOVING,
+            DESKTOP_RESIZING] + list(range(1, wm_state.max_desktops + 1))
+
+        self.desktops = utils.BijectiveSetMapping(*desktop_names)
 
         self.focused = None
         self.location = {}
@@ -160,24 +154,23 @@ class ClientData:
         """
         return self.find_desktop(client) in (self.current_desktop, DESKTOP_ALL)
 
-    def iter_desktop(self, desktop):
+    def get_clients_of(self, desktop):
         """
         Produces an iterator which produces all the clients on the given desktop.
 
         :param desktop: The desktop to get the clients of.
-        :return: An iterator of all clients on the desktop.
+        :return: A set of all clients on the desktop.
         :raises KeyError: If the given desktop doesn't exist.
         """
-        return iter(self.desktops[desktop])
+        return self.desktops.get_elements_of(desktop)
 
-    def iter_visible(self):
+    def get_visible_clients(self):
         """
         Produces an iterator which traverses all of the visible windows.
 
-        :return: An iterator of all clients which are visible.
+        :return: A set of all clients which are visible.
         """
-        visible_clients = self.desktops[self.current_desktop] | self.desktops[DESKTOP_ALL]
-        return iter(visible_clients)
+        return self.desktops.get_elements_of(self.current_desktop, DESKTOP_ALL)
 
     def iter_by_layer(self):
         """
@@ -186,9 +179,9 @@ class ClientData:
 
         :return: An iterator of all visible clients, from bottom to top.
         """
-        visible_clients = self.desktops[self.current_desktop] | self.desktops[DESKTOP_ALL]
+        visible_clients = self.get_visible_clients()
         for layer in range(utils.MIN_LAYER, utils.MAX_LAYER + 1):
-            clients_on_layer = self.layers[layer] & visible_clients
+            clients_on_layer = self.layers.get_elements_of(layer) & visible_clients
             for client in clients_on_layer:
                 yield client
 
@@ -203,21 +196,21 @@ class ClientData:
             size of the window when it was created.
         """
         if not (wm_hints.flags & Xutil.StateHint):
-            self.desktops[self.current_desktop].add(client)
+            self.desktops.add(self.current_desktop, client)
             self.push_change(ChangeClientDesktop(client, 
                 self.current_desktop))
         else:
             # Handle the client's request to have itself mapped as it wants
             if wm_hints.initial_state == Xutil.NormalState:
-                self.desktops[self.current_desktop].add(client)
+                self.desktops.add(self.current_desktop, client)
                 self.push_change(ChangeClientDesktop(client, 
                     self.current_desktop))
             elif wm.hints.initial_state == Xutil.IconicState:
-                self.desktops[DESKTOP_ICONS].add(client)
+                self.desktops.add(DESKTOP_ICONS, client)
                 self.push_change(ChangeClientDesktop(client, DESKTOP_ICONS))
 
         self.push_change(ChangeLayer(client, utils.DEFAULT_LAYER))
-        self.layers[utils.DEFAULT_LAYER].add(client)
+        self.layers.add(utils.DEFAULT_LAYER, client)
 
         self.location[client] = (geometry.x, geometry.y)
         self.size[client] = (geometry.width, geometry.height)
@@ -235,11 +228,8 @@ class ClientData:
         # You can't have a nonexistent window with the focus
         self.unfocus_if_focused(client)
 
-        client_desktop = self.find_desktop(client)
-        self.desktops[client_desktop].remove(client)
-
-        client_layer = self.find_layer(client)
-        self.layers[client_layer].remove(client)
+        self.desktops.remove(client)
+        self.layers.remove(client)
 
         del self.location[client]
         del self.size[client]
@@ -253,12 +243,7 @@ class ClientData:
         """
         # Every client must have an associated desktop, whether it be 'real'
         # or 'virtual' (like DESKTOP_ALL or DESKTOP_ICON)
-        try:
-            self.find_desktop(window)
-        except KeyError:
-            return False
-        else:
-            return True
+        return self.desktops.is_element(window)
 
     def focus(self, client):
         """
@@ -309,11 +294,7 @@ class ClientData:
         :return: The desktop that the client is on.
         :raise KeyError: If the client isn't listed in the desktop list.
         """
-        for desktop, win_list in self.desktops.items():
-            if client in win_list:
-                return desktop
-
-        raise KeyError('Could not find the desktop of a client')
+        return self.desktops.get_category_of(client)
 
     def find_layer(self, client):
         """
@@ -323,11 +304,7 @@ class ClientData:
         :return: The layer that the client is on.
         :raise KeyError: If the client isn't listed in the layer list.
         """
-        for layer, win_list in self.layers.items():
-            if client in win_list:
-                return layer
-
-        raise KeyError('Could not find the layer of a client')
+        return self.layers.get_category_of(client)
 
     def _move_to_desktop(self, client, old_desktop, new_desktop, 
             unfocus=True):
@@ -345,9 +322,8 @@ class ClientData:
 
         if unfocus:
             self.unfocus_if_focused(client)
-        
-        self.desktops[old_desktop].remove(client)
-        self.desktops[new_desktop].add(client)
+       
+        self.desktops.move(client, new_desktop)
         self.push_change(ChangeClientDesktop(client, new_desktop))
 
     def toggle_stick(self, client):
@@ -382,9 +358,7 @@ class ClientData:
         old_layer = self.find_layer(client)
         if old_layer < utils.MAX_LAYER:
             self.push_change(ChangeLayer(client, old_layer + 1))
-
-            self.layers[old_layer].remove(client)
-            self.layers[old_layer + 1].add(client)
+            self.layers.move(client, old_layer + 1)
 
     def down_layer(self, client):
         """
@@ -396,9 +370,7 @@ class ClientData:
         old_layer = self.find_layer(client)
         if old_layer > utils.MIN_LAYER:
             self.push_change(ChangeLayer(client, old_layer - 1))
-
-            self.layers[old_layer].remove(client)
-            self.layers[old_layer - 1].add(client)
+            self.layers.move(client, old_layer - 1)
 
     def set_layer(self, client, layer):
         """
@@ -409,15 +381,13 @@ class ClientData:
         :raise ValueError: If the given layer is an invalid layer.
         :raise KeyError: If the client is not known.
         """ 
-        if layer not in self.layers:
+        if layer not in self.layers.categories():
             raise ValueError('The layer {} is not a valid layer'.format(repr(layer)))
 
         old_layer = self.find_layer(client)
         if old_layer != layer:
             self.push_change(ChangeLayer(client, layer))
-
-            self.layers[old_layer].remove(client)
-            self.layers[layer].add(client)
+            self.layers.move(client, layer)
 
     def client_next_desktop(self, client):
         """
@@ -434,7 +404,7 @@ class ClientData:
             raise ValueError('Cannot change from a special desktop')
 
         next_desktop = old_desktop + 1
-        if next_desktop not in self.desktops:
+        if next_desktop not in self.desktops.categories():
             next_desktop = 1
         self._move_to_desktop(client, old_desktop, next_desktop)
 
@@ -453,7 +423,7 @@ class ClientData:
             raise ValueError('Cannot change from a special desktop')
 
         next_desktop = old_desktop - 1
-        if next_desktop not in self.desktops:
+        if next_desktop not in self.desktops.categories():
             next_desktop = self.wm_state.max_desktops
         self._move_to_desktop(client, old_desktop, next_desktop)
 
@@ -462,8 +432,8 @@ class ClientData:
         Moves the current desktop ahead one.
         """
         # We cannot do this if a window is being moved or resized
-        if (len(self.desktops[DESKTOP_MOVING]) > 0 or
-                len(self.desktops[DESKTOP_RESIZING]) > 0):
+        if (self.desktops.count_elements_of(DESKTOP_MOVING) > 0 or
+                self.desktops.count_elements_of(DESKTOP_RESIZING) > 0):
             raise ValueError('Cannot change desktops while move/resize in progress')
 
         # Since the currently focused window is no longer visible, unfocus it
@@ -481,8 +451,8 @@ class ClientData:
         Moves the current desktop back one.
         """
         # We cannot do this if a window is being moved or resized
-        if (len(self.desktops[DESKTOP_MOVING]) > 0 or
-                len(self.desktops[DESKTOP_RESIZING]) > 0):
+        if (self.desktops.count_elements_of(DESKTOP_MOVING) > 0 or
+                self.desktops.count_elements_of(DESKTOP_RESIZING) > 0):
             raise ValueError('Cannot change desktops while move/resize in progress')
 
         # Since the currently focused window is no longer visible, unfocus it
@@ -544,8 +514,8 @@ class ClientData:
         if old_desktop == DESKTOP_MOVING:
             # This icon is already moving
             raise ValueError('The client is already moving')
-        elif (len(self.desktops[DESKTOP_MOVING]) != 0 or 
-                len(self.desktops[DESKTOP_RESIZING]) != 0):
+        elif (self.desktops.count_elements_of(DESKTOP_MOVING) != 0 or 
+                self.desktops.count_elements_of(DESKTOP_RESIZING) != 0):
             # There is already another moving / resizing window
             raise ValueError('Another window is being moved')
         elif old_desktop in (DESKTOP_RESIZING, DESKTOP_ICONS):
@@ -590,8 +560,8 @@ class ClientData:
         if old_desktop == DESKTOP_RESIZING:
             # This icon is already moving
             raise ValueError('The client is already moving')
-        elif (len(self.desktops[DESKTOP_MOVING]) != 0 or 
-                len(self.desktops[DESKTOP_RESIZING]) != 0):
+        elif (self.desktops.count_elements_of(DESKTOP_MOVING) > 0 or
+                self.desktops.count_elements_of(DESKTOP_RESIZING) != 0):
             # There is already another moving / resizing window
             raise ValueError('Another window is being moved')
         elif old_desktop in (DESKTOP_MOVING, DESKTOP_ICONS):

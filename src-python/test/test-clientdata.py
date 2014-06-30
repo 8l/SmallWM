@@ -131,11 +131,11 @@ class TestLayerManagement(unittest.TestCase):
 
         # Ensure that the desktop list shows only the new client, since the
         # desktop was switched before adding it
-        clients = set(self.manager.iter_visible())
+        clients = self.manager.get_visible_clients()
         self.assertEqual(clients, {Y})
 
-        clients = set(self.manager.iter_desktop(
-            self.manager.current_desktop))
+        clients = self.manager.get_clients_of(
+            self.manager.current_desktop)
         self.assertEqual(clients, {Y})
 
         layered_clients = list(self.manager.iter_by_layer())
@@ -143,11 +143,11 @@ class TestLayerManagement(unittest.TestCase):
 
         # Switch back and ensure that the desktop list shows the original client
         self.manager.prev_desktop()
-        clients = set(self.manager.iter_visible())
+        clients = self.manager.get_visible_clients()
         self.assertEqual(clients, {X})
 
-        clients = set(self.manager.iter_desktop(
-            self.manager.current_desktop))
+        clients = self.manager.get_clients_of(
+            self.manager.current_desktop)
         self.assertEqual(clients, {X})
 
         layered_clients = list(self.manager.iter_by_layer())
@@ -156,7 +156,7 @@ class TestLayerManagement(unittest.TestCase):
         # Move the two onto the same desktop and ensure that the desktop list
         # shows them both.
         self.manager.client_prev_desktop(Y)
-        clients = set(self.manager.iter_visible())
+        clients = self.manager.get_visible_clients()
         self.assertEqual(clients, {X, Y})
 
         # Put X above Y and ensure that the proper order is returned
@@ -175,11 +175,11 @@ class TestLayerManagement(unittest.TestCase):
         self.manager.toggle_stick(Y)
         self.manager.next_desktop()
 
-        clients = set(self.manager.iter_visible())
+        clients = self.manager.get_visible_clients()
         self.assertEqual(clients, {Y})
 
-        clients = set(self.manager.iter_desktop(
-            self.manager.current_desktop))
+        clients = self.manager.get_clients_of(
+            self.manager.current_desktop)
         # This is the case since `iter_desktop` gets only clients on 
         # a single desktop, ignoring DESKTOP_ALL
         self.assertEqual(clients, set())
