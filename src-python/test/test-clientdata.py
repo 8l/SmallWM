@@ -52,15 +52,14 @@ class TestLayerManagement(unittest.TestCase):
         self.manager.flush_changes()
 
     def test_finder_functions(self):
-        """
-        Make sure that the find_* methods return proper values, and raise
-        the proper exceptions.
-        """
+        # Make sure that the `find_*` functions return proper results
         self.assertTrue(self.manager.is_client(X))
         self.assertEqual(self.manager.find_desktop(X), 1)
         self.assertEqual(self.manager.find_layer(X), 
             smallwm.utils.DEFAULT_LAYER)
-       
+      
+        # Ensure that `is_client` returns False if a client doesn't exist, and
+        # that the `find_*` methods raise KeyError
         self.manager.remove_client(X)
         self.assertFalse(self.manager.is_client(X))
         with self.assertRaises(KeyError):
@@ -70,102 +69,76 @@ class TestLayerManagement(unittest.TestCase):
             self.manager.find_layer(X)
 
     def test_layer_set(self):
-        """
-        Sets the layer of a client.
-        """
         new_layer = 8
 
-        self.assertIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertNotIn(X, self.manager.layers[new_layer])
+        # Make sure that the client is on the original layer to start with
+        self.assertEqual(self.manager.find_layer(X), smallwm.utils.DEFAULT_LAYER)
 
         self.manager.set_layer(X, new_layer)
         events = self.manager.flush_changes()
 
-        self.assertIn(X, self.manager.layers[new_layer])
-        self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertEqual(events,
-            [smallwm.client_data.ChangeLayer(X, new_layer)])
+        # Ensure that the client is on the correct layer
         self.assertEqual(self.manager.find_layer(X), new_layer)
 
+        # Ensure that the proper event has been raised
+        self.assertEqual(events,
+            [smallwm.client_data.ChangeLayer(X, new_layer)])
+
     def test_invalid_layer_set(self):
-        """
-        Sets an invalid layer.
-        """
+        # Ensure that an invalid layer raises an exception
         with self.assertRaises(ValueError):
-            self.manager.set_layer(X, 42)
+            self.manager.set_layer(X, smallwm.utils.MAX_LAYER * 2)
 
     def test_move_up_at_top(self):
-        """
-        Moves a client to the top, and then make sure it can't move up anymore.
-        """
+        # Move up the layer to the top, and ensure that the layer is changed
         self.manager.set_layer(X, smallwm.utils.MAX_LAYER)
-        self.assertIn(X, self.manager.layers[smallwm.utils.MAX_LAYER])
+        self.assertEqual(self.manager.find_layer(X), smallwm.utils.MAX_LAYER)
         self.assertEqual(self.manager.flush_changes(), 
             [smallwm.client_data.ChangeLayer(X, smallwm.utils.MAX_LAYER)])
 
+        # Ensure that moving up at this point causes no changes
         self.manager.up_layer(X)
-        self.assertIn(X, self.manager.layers[smallwm.utils.MAX_LAYER])
+        self.assertEqual(self.manager.find_layer(X), smallwm.utils.MAX_LAYER)
         self.assertEqual(self.manager.flush_changes(), [])
 
     def test_move_down_at_bottom(self):
-        """
-        Moves a client to the bottom, and then make sure it can't move down anymore.
-        """
+        # Move the client down to the lowest layer, and ensure that the layer
+        # was changed
         self.manager.set_layer(X, smallwm.utils.MIN_LAYER)
-        self.assertIn(X, self.manager.layers[smallwm.utils.MIN_LAYER])
         self.assertEqual(self.manager.find_layer(X), smallwm.utils.MIN_LAYER)
         self.assertEqual(self.manager.flush_changes(),
             [smallwm.client_data.ChangeLayer(X, smallwm.utils.MIN_LAYER)])
 
+        # Move the client down and ensure that nothing changes
         self.manager.down_layer(X)
-        self.assertIn(X, self.manager.layers[smallwm.utils.MIN_LAYER])
-        self.assertEqual(self.manager.flush_changes(), [])
         self.assertEqual(self.manager.find_layer(X), smallwm.utils.MIN_LAYER)
+        self.assertEqual(self.manager.flush_changes(), [])
 
     def test_layer_up(self):
-        """
-        Moves the client a layer up, making sure that the:
-
-         - Layer manager actually moves it up
-         - Layer manager fires a ChangeLayer event
-        """
-        self.assertIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertNotIn(X, 
-            self.manager.layers[smallwm.utils.DEFAULT_LAYER + 1])
+        # Make sure that the original layer is correct
         self.assertEqual(self.manager.find_layer(X), 
             smallwm.utils.DEFAULT_LAYER)
 
         self.manager.up_layer(X)
         events = self.manager.flush_changes()
-        
-        self.assertIn(X, 
-            self.manager.layers[smallwm.utils.DEFAULT_LAYER + 1])
-        self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
+       
+        # Ensure that the layer is now correct and that we got the correct
+        # events
+        self.assertEqual(self.manager.find_layer(X), 
+            smallwm.utils.DEFAULT_LAYER + 1)
         self.assertEqual(events, 
             [smallwm.client_data.ChangeLayer(X, 
                 smallwm.utils.DEFAULT_LAYER + 1)])
-        self.assertEqual(self.manager.find_layer(X), 
-            smallwm.utils.DEFAULT_LAYER + 1)
 
     def test_layer_down(self):
-        """
-        Moves the client a layer down, making sure that the:
-
-         - Layer manager actually moves it down
-         - Layer manager fires a ChangeLayer event
-        """
-        self.assertIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
-        self.assertNotIn(X, self.manager.layers[
-            smallwm.utils.DEFAULT_LAYER - 1])
+        # Ensure that the original layer is correct
         self.assertEqual(self.manager.find_layer(X), 
             smallwm.utils.DEFAULT_LAYER)
 
         self.manager.down_layer(X)
         events = self.manager.flush_changes()
-        
-        self.assertIn(X, 
-            self.manager.layers[smallwm.utils.DEFAULT_LAYER - 1])
-        self.assertNotIn(X, self.manager.layers[smallwm.utils.DEFAULT_LAYER])
+       
+        # Ensure that the layer is now correct and that we got the change event
         self.assertEqual(events, 
             [smallwm.client_data.ChangeLayer(X, 
                 smallwm.utils.DEFAULT_LAYER - 1)])
@@ -173,12 +146,12 @@ class TestLayerManagement(unittest.TestCase):
             smallwm.utils.DEFAULT_LAYER - 1)
 
     def test_client_next_desktop(self):
-        """
-        Moves the client through all desktops, starting at 1 and going ahead.
-        """
+        # Ensure that the next desktop function works by cycling a window
+        # through all the desktops
         focus = X
         desktop = 1
-        for x in range(25): # Some arbitrary number, > MAX_DESKTOPS
+        for x in range(MAX_DESKTOPS * 2):
+            # Ensure that we start off on the right desktop
             self.assertEqual(self.manager.find_desktop(X), desktop)
 
             self.manager.client_next_desktop(X)
@@ -188,24 +161,30 @@ class TestLayerManagement(unittest.TestCase):
                 desktop = 1
 
             if focus is X:
-                # Only the first iteration should change this, since X
-                # was focused in the beginning
+                # This is true only on the first iteration. The client was
+                # focused when it was created, and so we should see the
+                # following sequence of events.
+                #
+                # Note that the focus change comes *before* the desktop change,
+                # since at no time do we ever want the focused window to not be
+                # visible.
                 self.assertEqual(self.manager.flush_changes(),
                     [smallwm.client_data.ChangeFocus(X, None),
                      smallwm.client_data.ChangeClientDesktop(X, desktop)])
                 focus = None
             else:
+                # On further iterations, no focus change ever occurs since
+                # the window is never focused again.
                 self.assertEqual(self.manager.flush_changes(),
                     [smallwm.client_data.ChangeClientDesktop(X,
                         desktop)])
 
     def test_client_prev_desktop(self):
-        """
-        Moves the client through all desktops, starting at 1 and going back.
-        """
+        # This is directly symmetrical to `test_client_next_desktop`, so go
+        # read that if you want an idea of what this does
         desktop = 1
         focus = X
-        for x in range(25):
+        for x in range(MAX_DESKTOPS * 2):
             self.assertEqual(self.manager.find_desktop(X), desktop)
 
             self.manager.client_prev_desktop(X)
@@ -215,8 +194,6 @@ class TestLayerManagement(unittest.TestCase):
                 desktop += MAX_DESKTOPS
 
             if focus is X:
-                # Only the first iteration should change this, since X
-                # was focused in the beginning
                 self.assertEqual(self.manager.flush_changes(),
                     [smallwm.client_data.ChangeFocus(X, None),
                      smallwm.client_data.ChangeClientDesktop(X, desktop)])
@@ -227,34 +204,47 @@ class TestLayerManagement(unittest.TestCase):
                         desktop)])
 
     def test_client_desktop_invalid_states(self):
-        """
-        Tests that moving a client to a different desktop, starting from an
-        invalid desktop (for example, if the client is iconified) causes
-        a ValueError.
-
-        Also tests that moving nonexistent desktops causes a KeyError.
-        """
+        # You cannot change the desktop of an invalid client
         with self.assertRaises(KeyError):
             self.manager.client_next_desktop(Y)
 
         with self.assertRaises(KeyError):
             self.manager.client_prev_desktop(Y)
 
-        # Changing the desktop of an iconified client is invalid
+        # Changing the desktop of an iconified client is invalid, since there is
+        # no "next" after the iconified state
         self.manager.iconify(X)
         with self.assertRaises(ValueError):
             self.manager.client_next_desktop(X)
 
         with self.assertRaises(ValueError):
             self.manager.client_prev_desktop(X)
+        self.manager.deiconify(X)
+
+        # Applying the same reasoning to the above iconify case, you can't change
+        # the desktop of a moving client or a resizing client
+        self.manager.start_moving(X)
+        with self.assertRaises(ValueError):
+            self.manager.client_next_desktop(X)
+
+        with self.assertRaises(ValueError):
+            self.manager.client_prev_desktop(X)
+        self.manager.stop_moving(X, Geometry())
+
+        self.manager.start_resizing(X)
+        with self.assertRaises(ValueError):
+            self.manager.client_next_desktop(X)
+
+        with self.assertRaises(ValueError):
+            self.manager.client_prev_desktop(X)
+        self.manager.stop_resizing(X, Geometry())
 
     def test_next_desktop(self):
-        """
-        Cycles through all the desktops, starting at 1 and going ahead.
-        """
+        # `test_client_next_desktop` mirrors this almost exactly - go read the
+        # comments there
         focus = X
         desktop = 1
-        for x in range(25): # An arbitrary number > MAX_DESKTOPS
+        for x in range(MAX_DESKTOPS * 2):
             self.assertEqual(self.manager.current_desktop, desktop)
             
             self.manager.next_desktop()
@@ -264,8 +254,6 @@ class TestLayerManagement(unittest.TestCase):
                 desktop = 1
 
             if focus is X:
-                # Only the first iteration should change this, since X
-                # was focused in the beginning
                 self.assertEqual(self.manager.flush_changes(),
                     [smallwm.client_data.ChangeFocus(X, None),
                      smallwm.client_data.ChangeCurrentDesktop(desktop)])
@@ -275,12 +263,11 @@ class TestLayerManagement(unittest.TestCase):
                     [smallwm.client_data.ChangeCurrentDesktop(desktop)])
 
     def test_prev_desktop(self):
-        """
-        Cycles through all the desktops, starting at 1 and going back.
-        """
+        # `test_client_next_desktop` mirrors this almost exactly - go read the
+        # comments there
         focus = X
         desktop = 1
-        for x in range(25): # An arbitrary number > MAX_DESKTOPS
+        for x in range(MAX_DESKTOPS * 2):
             self.assertEqual(self.manager.current_desktop, desktop)
             
             self.manager.prev_desktop()
@@ -301,122 +288,114 @@ class TestLayerManagement(unittest.TestCase):
                     [smallwm.client_data.ChangeCurrentDesktop(desktop)])
 
     def test_bad_desktop_switch(self):
-        """
-        Runs through some scenarios where the desktop can't be changed, and
-        ensure that exceptions are thrown.
-        """
-        # You can't change desktops while moving a window
+        # You can't change desktops while moving or resizing a window
         self.manager.start_moving(X)
         with self.assertRaises(ValueError):
             self.manager.next_desktop()
-        self.manager.stop_moving(X, Geometry())
 
-        self.manager.start_moving(X)
         with self.assertRaises(ValueError):
             self.manager.prev_desktop()
         self.manager.stop_moving(X, Geometry())
 
-        # You can't change desktops while resizing a window
         self.manager.start_resizing(X)
         with self.assertRaises(ValueError):
             self.manager.next_desktop()
-        self.manager.stop_resizing(X, Geometry())
 
-        self.manager.start_resizing(X)
         with self.assertRaises(ValueError):
             self.manager.prev_desktop()
         self.manager.stop_resizing(X, Geometry())
 
     def test_iconify(self):
-        """
-        Iconifies a window, and then ensure that it is iconified.
-        
-        And then deiconify it, and then ensure that it was deiconified.
-        """
         self.manager.iconify(X)
-        
-        # Note the order of these events - the (un)focusing must happen before
-        # a client goes to a different desktop (see below), but _after_ it 
-        # gets back to the current one (see after `.deiconify()`)
+       
+        # Make sure that the order of events is correct - the focus change
+        # must occur first, since we don't want the focus to be on an
+        # iconified client
         self.assertEqual(self.manager.flush_changes(),
             [ smallwm.client_data.ChangeFocus(X, None), 
               smallwm.client_data.ChangeClientDesktop(X, 
                 smallwm.client_data.DESKTOP_ICONS)])
+
+        # Ensure that further queries put the client on the correct desktop
         self.assertEqual(self.manager.find_desktop(X), 
             smallwm.client_data.DESKTOP_ICONS)
 
         self.manager.deiconify(X)
+
+        # The events here are in the reverse order - we can't focus first, since
+        # the client is still iconified. So, it must be uniconified first.
         self.assertEqual(self.manager.flush_changes(),
             [smallwm.client_data.ChangeClientDesktop(X, 
                 self.manager.current_desktop),
              smallwm.client_data.ChangeFocus(None, X)])
+
+        # Ensure that further queries put the client on the correct desktop
         self.assertEqual(self.manager.find_desktop(X), 
             self.manager.current_desktop)
 
     def test_bad_iconify(self):
-        """
-        Ensures that invalid attempts to iconify raise the appropriate 
-        exceptions.
-        """
-        # Nonexistent clients raise KeyErrors
+        # Trying to iconify nonexistent clients should raise exceptions
         with self.assertRaises(KeyError):
             self.manager.iconify(Y)
 
         with self.assertRaises(KeyError):
             self.manager.deiconify(Y)
 
-        # Deiconifying non-iconified clients raises ValueErrors
+        # Deiconifying non-iconified clients should raise exceptions
         with self.assertRaises(ValueError):
             self.manager.deiconify(X)
 
-        # You can't iconify something that is being moved
+        # You can't iconify something that is being moved, since the client
+        # that is being moved is not necessarily visible
         self.manager.start_moving(X)
         with self.assertRaises(ValueError):
             self.manager.iconify(X)
         self.manager.stop_moving(X, Geometry())
 
-        # You can't iconify something that is being resized
+        # You can't iconify something that is being resized for the same reason
         self.manager.start_resizing(X)
         with self.assertRaises(ValueError):
             self.manager.iconify(X)
         self.manager.stop_resizing(X, Geometry())
 
     def test_moving(self):
-        """
-        Starts, and then stops, moving a window to make sure the correct
-        events are handled.
-        """
         self.manager.start_moving(X)
+
+        # You should be familiar with this order of events from previous
+        # test-cases  - if not, read `test_iconify` to understand why the
+        # order is important here.
         self.assertEqual(self.manager.flush_changes(),
             [smallwm.client_data.ChangeFocus(X, None), 
              smallwm.client_data.ChangeClientDesktop(X, 
                 smallwm.client_data.DESKTOP_MOVING)])
+
         self.assertEqual(self.manager.find_desktop(X),
             smallwm.client_data.DESKTOP_MOVING)
 
+        # Actually move the desktop, which only happens when the moving state
+        # exits
         new_location = Geometry()
         new_location.x = 42
         new_location.y = 42
         self.manager.stop_moving(X, new_location)
 
+        # The ordering, as usual, is significant. First, we have to make the
+        # client visible. Only then can it be moved, and then focused.
         self.assertEqual(self.manager.flush_changes(),
             [smallwm.client_data.ChangeClientDesktop(X, 
                 self.manager.current_desktop),
              smallwm.client_data.ChangeLocation(X, 42, 42),
              smallwm.client_data.ChangeFocus(None, X)])
+
         self.assertEqual(self.manager.find_desktop(X),
             self.manager.current_desktop)
 
     def test_bad_moving(self):
-        """
-        Tests scenarios which are invalid, and ensures that exceptions are
-        raised.
-        """
-        # You can't move a nonexistent client
+        # Moving a nonexistent client should raise exceptions
         with self.assertRaises(KeyError):
             self.manager.start_moving(Y)
 
-        # You can't stop moving unless previously moving
+        # You can't stop moving unless it was previously moving
         with self.assertRaises(ValueError):
             self.manager.stop_moving(X, Geometry())
 
@@ -449,15 +428,15 @@ class TestLayerManagement(unittest.TestCase):
         self.manager.stop_resizing(Y, Geometry())
 
     def test_resizing(self):
-        """
-        Starts, and then stops, resizing a window to make sure the correct
-        events are handled.
-        """
+        # Read `test_moving` to understand what this is testing for, since
+        # this tests for the very same things
         self.manager.start_resizing(X)
+
         self.assertEqual(self.manager.flush_changes(),
             [smallwm.client_data.ChangeFocus(X, None), 
              smallwm.client_data.ChangeClientDesktop(X, 
                 smallwm.client_data.DESKTOP_RESIZING)])
+
         self.assertEqual(self.manager.find_desktop(X),
             smallwm.client_data.DESKTOP_RESIZING)
 
@@ -471,35 +450,28 @@ class TestLayerManagement(unittest.TestCase):
                 self.manager.current_desktop),
              smallwm.client_data.ChangeSize(X, 42, 42),
              smallwm.client_data.ChangeFocus(None, X)])
+
         self.assertEqual(self.manager.find_desktop(X),
             self.manager.current_desktop)
 
     def test_bad_resizing(self):
-        """
-        Tests scenarios which are invalid, and ensures that exceptions are
-        raised.
-        """
-        # You can't resize a nonexistent client
+        # Read `test_bad_moving` to understand what this does
         with self.assertRaises(KeyError):
             self.manager.start_resizing(Y)
 
-        # You can't stop resizing unless previously resizing
         with self.assertRaises(ValueError):
             self.manager.stop_resizing(X, Geometry())
 
-        # You can't resize an already resizing window
         self.manager.start_resizing(X)
         with self.assertRaises(ValueError):
             self.manager.start_resizing(X)
         self.manager.stop_resizing(X, Geometry())
 
-        # You can't resize an iconified window
         self.manager.iconify(X)
         with self.assertRaises(ValueError):
             self.manager.start_resizing(X)
         self.manager.deiconify(X)
 
-        # You can't resize two windows at once
         hints = FakeHints()
         geometry = Geometry()
         self.manager.add_client(Y, hints, geometry)
@@ -509,7 +481,6 @@ class TestLayerManagement(unittest.TestCase):
             self.manager.start_resizing(Y)
         self.manager.stop_resizing(X, Geometry())
 
-        # You can't resize a window while another is being moved
         self.manager.start_moving(Y)
         with self.assertRaises(ValueError):
             self.manager.start_resizing(X)
