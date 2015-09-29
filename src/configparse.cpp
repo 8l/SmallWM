@@ -21,7 +21,7 @@ void WMConfig::load()
  */
 void WMConfig::reset()
 {
-    shell.assign("/usr/bin/xterm");
+    shell.assign("/usr/bin/gnome-terminal");
     num_desktops = 5;
     icon_width = 75;
     icon_height = 20;
