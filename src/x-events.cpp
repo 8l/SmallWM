@@ -97,6 +97,34 @@ void XEvents::handle_keypress()
         if (is_client)
              m_clients.iconify(client);
         break;
+    case RUN:
+        if (!fork())
+        {
+            /* 
+             * Here's why 'exec' is used in two different ways. First, it is
+             * important to have /bin/sh process the shell command since it
+             * supports argument parsing, which eases our burden dramatically.
+             * 
+             * Now, consider the process sequence as depicted below (where 'xterm'
+             * is the user's chosen shell).
+             * 
+             * fork()
+             * [creates process] ==> execl(/bin/sh, -c, /bin/sh, exec xterm)
+             * # Somewhere in the /bin/sh source...
+             * [creates process] ==> execl(/usr/bin/xterm, /usr/bin/xterm)
+             * 
+             * If we used std::system instead, then the first process after fork()
+             * would stick around to get the return code from the /bin/sh. If 'exec'
+             * were not used in the /bin/sh command line, then /bin/sh would stick
+             * around waiting for /usr/bin/xterm.
+             * 
+             * So, to avoid an extra smallwm process sticking around, _or_ an
+             * unnecessary /bin/sh process sticking around, use 'exec' twice.
+             */
+            execl("/bin/sh", "/bin/sh", "-c", "exec /usr/bin/dmenu_run", NULL);
+            exit(1);
+        }
+        break;
     case MAXIMIZE:
         if (is_client)
             m_clients.change_mode(client, CPS_MAX);

@@ -723,6 +723,7 @@ DefaultBinding shortcuts[] = {
     { PREV_DESKTOP, XK_comma, false },
     { TOGGLE_STICK, XK_backslash, false },
     { ICONIFY, XK_h, false },
+    { RUN, XK_r, false },
     { MAXIMIZE, XK_m, false },
     { REQUEST_CLOSE, XK_c, false },
     { FORCE_CLOSE, XK_x, false },
@@ -818,6 +819,12 @@ SUITE(WMConfigSuiteKeyboardOptions)
         config.load();
 
         KeyBinding layer_1_binding(XK_h, true);
+        CHECK_EQUAL(layer_1_binding, 
+            config.key_commands.action_to_binding[LAYER_1]);
+        CHECK_EQUAL(LAYER_1,
+            config.key_commands.binding_to_action[layer_1_binding]);
+
+        KeyBinding layer_1_binding(XK_r, true);
         CHECK_EQUAL(layer_1_binding, 
             config.key_commands.action_to_binding[LAYER_1]);
         CHECK_EQUAL(LAYER_1,

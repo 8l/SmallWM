@@ -32,6 +32,7 @@ public:
             NEXT_DESKTOP, PREV_DESKTOP,
             TOGGLE_STICK,
             ICONIFY,
+	    RUN,
             MAXIMIZE,
             REQUEST_CLOSE, FORCE_CLOSE,
             K_SNAP_TOP, K_SNAP_BOTTOM, K_SNAP_LEFT, K_SNAP_RIGHT,
