@@ -32,6 +32,7 @@ ones that involve clicking the mouse, and the `Super+1` ... `Super+9` bindings.
 
 ## Clients ##
 
+- `Super+r`: launch program using dmenu_run (`run`).
 - `Super+h`: Iconifies the current client (`iconify`).
 - `Super+m`: Maximizes the current client (`maximize`).
 - `Super+c`, Requests the current client to close (`request-close`).
