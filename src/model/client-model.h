@@ -9,7 +9,6 @@
 #include "unique-multimap.h"
 
 #include <algorithm>
-#include <queue>
 #include <utility>
 #include <vector>
 
@@ -42,16 +41,16 @@ public:
     desktop_ptr RESIZING_DESKTOP;
     std::vector<UserDesktop*> USER_DESKTOPS;
 
-    typedef std::vector<change_ptr>::iterator change_iter;
     typedef UniqueMultimap<desktop_ptr,Window>::member_iter client_iter;
 
     /**
      * Initializes all of the categories in the maps
      */
-    ClientModel(CrtManager &crt_manager, unsigned long long max_desktops) :
+    ClientModel(ChangeStream &changes, CrtManager &crt_manager, unsigned long long max_desktops) :
         m_crt_manager(crt_manager),
+        m_changes(changes),
         m_max_desktops(max_desktops),
-        m_focused(None), m_drop_changes(false),
+        m_focused(None),
         // Initialize all the desktops
         ALL_DESKTOPS(new AllDesktops()), 
         ICON_DESKTOP(new IconDesktop()),
@@ -78,12 +77,8 @@ public:
 
     ~ClientModel()
     {
-        flush_changes();
+        m_changes.flush();
     }
-
-    void flush_changes();
-    bool has_more_changes();
-    change_ptr get_next_change();
 
     bool is_client(Window);
     bool is_visible(Window);
@@ -93,7 +88,7 @@ public:
     void get_visible_clients(std::vector<Window>&);
     void get_visible_in_layer_order(std::vector<Window>&);
     
-    void add_client(Window, InitialState, Dimension2D, Dimension2D);
+    void add_client(Window, InitialState, Dimension2D, Dimension2D, bool);
     void remove_client(Window);
     void unmap_client(Window);
 
@@ -107,7 +102,11 @@ public:
     bool remove_from_focus_history(Window);
 
     Window get_focused();
+    bool is_autofocusable(Window);
+    void set_autofocus(Window, bool);
+
     void focus(Window);
+    void force_focus(Window);
     void unfocus();
     void unfocus_if_focused(Window);
 
@@ -140,11 +139,7 @@ public:
 
     void update_screens(std::vector<Box>&);
 
-    void begin_dropping_changes();
-    void end_dropping_changes();
-
 protected:
-    void push_change(change_ptr);
     void move_to_desktop(Window, desktop_ptr, bool);
 
     void to_screen_crt(Window, Crt*);
@@ -155,8 +150,9 @@ private:
     // The screen manager, used to map positions to screens
     CrtManager &m_crt_manager;
 
-    /// A list of the changes made to the client data
-    std::queue<change_ptr> m_changes;
+    /// The current change stream, which accepts changes we push
+    ChangeStream &m_changes;
+
     /// The maximum number of user-visible desktops
     unsigned long long m_max_desktops;
 
@@ -174,6 +170,9 @@ private:
     /// A mapping between clients and their screens
     std::map<Window, Box> m_screen;
 
+    /// Which clients may be auto-focused, and which may not
+    std::map<Window, bool> m_autofocus;
+
     /** A mapping between clients that are iconified, or being moved/resized, 
         and whether or not they were stuck before they were moved/resized or
         iconfied. */
@@ -183,9 +182,6 @@ private:
     UserDesktop * m_current_desktop;
     /// The currently focused client
     Window m_focused;
-
-    /// Whether or not to *not* propagate changes
-    bool m_drop_changes;
 };
 
 #endif

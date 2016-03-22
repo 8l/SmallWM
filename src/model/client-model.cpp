@@ -2,44 +2,6 @@
 #include "client-model.h"
 
 /**
- * Removes all changes which are still stored.
- */
-void ClientModel::flush_changes()
-{
-    change_ptr change;
-    while ((change = get_next_change()) != 0)
-        delete change;
-}
-
-/**
- * Checks if the change queue is empty.
- *
- * @return True if no changes remain, False otherwise.
- */
-bool ClientModel::has_more_changes()
-{
-    return !m_changes.empty();
-}
-
-/**
- * Gets the next change, or NULL if no changes remain.
- *
- * Note that this change should be deleted after the caller is finished with
- * it.
- */
-ClientModel::change_ptr ClientModel::get_next_change()
-{
-    if (has_more_changes())
-    {
-        change_ptr change = m_changes.front();
-        m_changes.pop();
-        return change;
-    }
-    else
-        return 0;
-}
-
-/**
  * Returns whether or not a client exists.
  */
 bool ClientModel::is_client(Window client)
@@ -123,7 +85,7 @@ void ClientModel::get_visible_in_layer_order(std::vector<Window> &return_clients
  * Adds a new client with some basic initial state.
  */
 void ClientModel::add_client(Window client, InitialState state,
-    Dimension2D location, Dimension2D size)
+    Dimension2D location, Dimension2D size, bool autofocus)
 {
     if (DIM2D_WIDTH(size) <= 0 || DIM2D_HEIGHT(size) <= 0)
         return;
@@ -134,17 +96,17 @@ void ClientModel::add_client(Window client, InitialState state,
     {
         case IS_VISIBLE:
             m_desktops.add_member(m_current_desktop, client);
-            push_change(new ChangeClientDesktop(client, 0,
+            m_changes.push(new ChangeClientDesktop(client, 0,
                         m_current_desktop));
             break;
         case IS_HIDDEN:
             m_desktops.add_member(ICON_DESKTOP, client);
-            push_change(new ChangeClientDesktop(client, 0, ICON_DESKTOP));
+            m_changes.push(new ChangeClientDesktop(client, 0, ICON_DESKTOP));
             break;
     }
 
     m_layers.add_member(DEF_LAYER, client);
-    push_change(new ChangeLayer(client, DEF_LAYER));
+    m_changes.push(new ChangeLayer(client, DEF_LAYER));
 
     // Since the size and locations are already current, don't put out
     // an event now that they're set
@@ -162,7 +124,13 @@ void ClientModel::add_client(Window client, InitialState state,
         m_screen[client] = screen_box;
     }
 
-    focus(client);
+    if (autofocus)
+    {
+        set_autofocus(client, true);
+        focus(client);
+    }
+    else
+        set_autofocus(client, false);
 }
 
 /**
@@ -194,8 +162,9 @@ void ClientModel::remove_client(Window client)
     m_size.erase(client);
     m_cps_mode.erase(client);
     m_screen.erase(client);
+    m_autofocus.erase(client);
 
-    push_change(new DestroyChange(client, desktop, layer));
+    m_changes.push(new DestroyChange(client, desktop, layer));
 }
 
 /**
@@ -207,7 +176,7 @@ void ClientModel::unmap_client(Window client)
     if (!is_client(client))
         return;
 
-    push_change(new UnmapChange(client));
+    m_changes.push(new UnmapChange(client));
 }
 
 /**
@@ -230,7 +199,7 @@ void ClientModel::change_mode(Window client, ClientPosScale cps)
     if (m_cps_mode[client] != cps)
     {
         m_cps_mode[client] = cps;
-        push_change(new ChangeCPSMode(client, cps));
+        m_changes.push(new ChangeCPSMode(client, cps));
     }
 }
 
@@ -246,7 +215,7 @@ void ClientModel::change_location(Window client, Dimension x, Dimension y)
     Box &new_desktop = m_crt_manager.box_of_screen(new_screen);
 
     m_location[client] = Dimension2D(x, y);
-    push_change(new ChangeLocation(client, x, y));
+    m_changes.push(new ChangeLocation(client, x, y));
 
     if (old_desktop != new_desktop)
         to_screen_box(client, new_desktop);
@@ -260,7 +229,7 @@ void ClientModel::change_size(Window client, Dimension width, Dimension height)
     if (width > 0 && height > 0)
     {
         m_size[client] = Dimension2D(width, height);
-        push_change(new ChangeSize(client, width, height));
+        m_changes.push(new ChangeSize(client, width, height));
     }
 }
 
@@ -301,10 +270,54 @@ Window ClientModel::get_focused()
 }
 
 /**
+ * Returns true if a window can be automatically focused, or false otherwise.
+ */
+bool ClientModel::is_autofocusable(Window client)
+{
+    if (!is_client(client))
+        return false;
+
+    return m_autofocus[client];
+}
+
+/**
+ * Either allows, or prevents, a client from being autofocused.
+ */
+void ClientModel::set_autofocus(Window client, bool can_autofocus)
+{
+    if (!is_client(client))
+        return;
+
+    m_autofocus[client] = can_autofocus;
+}
+
+/**
  * Changes the focus to another window. Note that this fails if the client
  * is not currently visible.
+ *
+ * This is used for automated focusing, and is subject to the rules of
+ * autofocusing - in particular, if the user enables nofocus for this type of
+ * window, then this will do nothing.
  */
 void ClientModel::focus(Window client)
+{
+    if (!is_visible(client))
+        return;
+
+    if (!m_autofocus[client])
+        return;
+
+    Window old_focus = m_focused;
+    m_focused = client;
+
+    m_current_desktop->focus_history.push(client);
+    m_changes.push(new ChangeFocus(old_focus, client));
+}
+
+/**
+ * Forces a window to be focused, ignoring the nofocus policy.
+ */
+void ClientModel::force_focus(Window client)
 {
     if (!is_visible(client))
         return;
@@ -312,8 +325,12 @@ void ClientModel::focus(Window client)
     Window old_focus = m_focused;
     m_focused = client;
 
-    m_current_desktop->focus_history.push(client);
-    push_change(new ChangeFocus(old_focus, client));
+    // Since the focus history is used for automatic focusing, avoid
+    // polluting it with windows that cannot be focused
+    if (m_autofocus[client])
+        m_current_desktop->focus_history.push(client);
+
+    m_changes.push(new ChangeFocus(old_focus, client));
 }
 
 /**
@@ -325,7 +342,7 @@ void ClientModel::unfocus()
     {
         Window old_focus = m_focused;
         m_focused = None;
-        push_change(new ChangeFocus(old_focus, None));
+        m_changes.push(new ChangeFocus(old_focus, None));
     }
 }
 
@@ -372,7 +389,7 @@ void ClientModel::up_layer(Window client)
     if (old_layer < MAX_LAYER)
     {
         m_layers.move_member(client, old_layer + 1);
-        push_change(new ChangeLayer(client, old_layer + 1));
+        m_changes.push(new ChangeLayer(client, old_layer + 1));
     }
 }
 
@@ -385,7 +402,7 @@ void ClientModel::down_layer(Window client)
     if (old_layer > MIN_LAYER)
     {
         m_layers.move_member(client, old_layer - 1);
-        push_change(new ChangeLayer(client, old_layer - 1));
+        m_changes.push(new ChangeLayer(client, old_layer - 1));
     }
 }
 
@@ -401,7 +418,7 @@ void ClientModel::set_layer(Window client, Layer layer)
     if (old_layer != layer)
     {
         m_layers.move_member(client, layer);
-        push_change(new ChangeLayer(client, layer));
+        m_changes.push(new ChangeLayer(client, layer));
     }
 }
 
@@ -489,7 +506,7 @@ void ClientModel::next_desktop()
     if (m_focused != None && !is_visible(m_focused))
         unfocus();
 
-    push_change(new ChangeCurrentDesktop(old_desktop, m_current_desktop));
+    m_changes.push(new ChangeCurrentDesktop(old_desktop, m_current_desktop));
 }
 
 /**
@@ -514,7 +531,7 @@ void ClientModel::prev_desktop()
     if (m_focused != None && !is_visible(m_focused))
         unfocus();
 
-    push_change(new ChangeCurrentDesktop(old_desktop, m_current_desktop));
+    m_changes.push(new ChangeCurrentDesktop(old_desktop, m_current_desktop));
 }
 
 /**
@@ -704,7 +721,7 @@ void ClientModel::to_screen_crt(Window client, Crt* screen)
     if (current_box != target_box)
     {
         m_screen[client] = target_box;
-        push_change(new ChangeScreen(client, target_box));
+        m_changes.push(new ChangeScreen(client, target_box));
     }
 }
 
@@ -743,18 +760,9 @@ void ClientModel::update_screens(std::vector<Box> &bounds)
             // to new_box directly, then new_box will go out of scope and
             // our data will be thoroughly shat over. Thankfully the unit
             // tests caught this one.
-            push_change(new ChangeScreen(client, m_screen[client]));
+            m_changes.push(new ChangeScreen(client, m_screen[client]));
         }
     }
-}
-
-/**
- * Pushes a change into the change buffer.
- */
-void ClientModel::push_change(change_ptr change)
-{
-    if (!m_drop_changes)
-        m_changes.push(change);
 }
 
 /**
@@ -772,23 +780,5 @@ void ClientModel::move_to_desktop(Window client, desktop_ptr new_desktop,
     if (unfocus && !is_visible(client))
         unfocus_if_focused(client);
 
-    push_change(new ChangeClientDesktop(client, old_desktop, new_desktop));
-}
-
-/**
- * Starts ignoring changes, until `end_dropping_changes` is called. This is
- * used to ignore changes which occur as a result of specific methods, without
- * having to take some sort of copy-and-restore strategy.
- */
-void ClientModel::begin_dropping_changes()
-{
-    m_drop_changes = true;
-}
-
-/**
- * Stops ignoring changes, undoing the effects of `begin_dropping_changes`.
- */
-void ClientModel::end_dropping_changes()
-{
-    m_drop_changes = false;
+    m_changes.push(new ChangeClientDesktop(client, old_desktop, new_desktop));
 }

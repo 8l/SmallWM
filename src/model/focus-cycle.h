@@ -16,13 +16,14 @@
 class FocusCycle
 {
 public:
-    FocusCycle(Log &logger) :
+    FocusCycle(Log *logger) :
         m_logger(logger)
     {};
 
     void update_window_list(const std::vector<Window>&);
     void set_focus(Window);
     Window get_next();
+    Window get_prev();
 
 private:
     /// The index of the currently focused window.
@@ -35,7 +36,7 @@ private:
     std::vector<Window> m_focus_list;
 
     /// The current logger
-    Log &m_logger;
+    Log *m_logger;
 };
 
 #endif
