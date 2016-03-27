@@ -70,8 +70,13 @@ void XEvents::handle_keypress()
   case HK_MOUSE:
     {
       client = m_event.xkey.subwindow;
-      if (client == None)
+      
+      switch(client)
+      {
+      case None:
         client = m_event.xkey.window;
+        break;
+      }
     }
     break;
   case HK_FOCUS:
