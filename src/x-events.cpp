@@ -64,16 +64,22 @@ void XEvents::handle_keypress()
   bool is_using_secondary_action = (m_event.xkey.state & SECONDARY_MASK);
 
   Window client = None;
-  if (m_config.hotkey == HK_MOUSE)
+  
+  switch(m_config.hotkey)
   {
-    client = m_event.xkey.subwindow;
-    if (client == None)
-      client = m_event.xkey.window;
+  case HK_MOUSE:
+    {
+      client = m_event.xkey.subwindow;
+      if (client == None)
+        client = m_event.xkey.window;
+    }
+    break;
+  case HK_FOCUS:
+    client = m_clients.get_focused();
+    break;
+  default:
+    return;
   }
-  else if (m_config.hotkey == HK_FOCUS)
-      client = m_clients.get_focused();
-
-  bool is_client = m_clients.is_client(client);
 
   KeyBinding binding(key, is_using_secondary_action);
   KeyboardAction action = m_config.key_commands.binding_to_action[binding];
@@ -133,6 +139,8 @@ void XEvents::handle_keypress()
     return;
     
   }
+
+  bool is_client = m_clients.is_client(client);
   
   switch(is_client)
   {
