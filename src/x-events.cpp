@@ -8,41 +8,41 @@
  */
 bool XEvents::step()
 {
-    // Grab the next event from X, and then dispatch upon its type
-    m_xdata.next_event(m_event);
+  // Grab the next event from X, and then dispatch upon its type
+  m_xdata.next_event(m_event);
 
-    if (m_event.type == m_xdata.randr_event_offset + RRNotify)
-        handle_rrnotify();
-        
-    switch(m_event.type)
-    {
-    case KeyPress:
-	    handle_keypress();
-    	break;
-    case ButtonPress:
-	    handle_buttonpress();
-    	break;
-    case ButtonRelease:
-    	handle_buttonrelease();
-    	break;
-    case MotionNotify:
-    	handle_motionnotify();
-    	break;
-    case MapNotify:
-    	handle_mapnotify();
-    	break;
-     case UnmapNotify:
-     	handle_unmapnotify();
-    	break;
-     case Expose:
-     	handle_expose();
-    	break;
-     case DestroyNotify:
-     	handle_destroynotify();
-    	break;
-    }
+  if (m_event.type == m_xdata.randr_event_offset + RRNotify)
+    handle_rrnotify();
+      
+  switch(m_event.type)
+  {
+  case KeyPress:
+    handle_keypress();
+	  break;
+  case ButtonPress:
+    handle_buttonpress();
+	  break;
+  case ButtonRelease:
+	  handle_buttonrelease();
+	  break;
+  case MotionNotify:
+	  handle_motionnotify();
+	  break;
+  case MapNotify:
+	  handle_mapnotify();
+	  break;
+   case UnmapNotify:
+   	handle_unmapnotify();
+	  break;
+   case Expose:
+   	handle_expose();
+	  break;
+   case DestroyNotify:
+   	handle_destroynotify();
+	  break;
+  }
 
-    return !m_done;
+  return !m_done;
 }
 
 /**
@@ -50,9 +50,9 @@ bool XEvents::step()
  */
 void XEvents::handle_rrnotify()
 {
-    std::vector<Box> screens;
-    m_xdata.get_screen_boxes(screens);
-    m_clients.update_screens(screens);
+  std::vector<Box> screens;
+  m_xdata.get_screen_boxes(screens);
+  m_clients.update_screens(screens);
 }
 
 /**
@@ -60,169 +60,163 @@ void XEvents::handle_rrnotify()
  */
 void XEvents::handle_keypress()
 {
-    KeySym key = m_xdata.get_keysym(m_event.xkey.keycode);
-    bool is_using_secondary_action = (m_event.xkey.state & SECONDARY_MASK);
+  KeySym key = m_xdata.get_keysym(m_event.xkey.keycode);
+  bool is_using_secondary_action = (m_event.xkey.state & SECONDARY_MASK);
 
-    Window client = None;
-    if (m_config.hotkey == HK_MOUSE)
+  Window client = None;
+  if (m_config.hotkey == HK_MOUSE)
+  {
+    client = m_event.xkey.subwindow;
+    if (client == None)
+      client = m_event.xkey.window;
+  }
+  else if (m_config.hotkey == HK_FOCUS)
+      client = m_clients.get_focused();
+
+  bool is_client = m_clients.is_client(client);
+
+  KeyBinding binding(key, is_using_secondary_action);
+  KeyboardAction action = m_config.key_commands.binding_to_action[binding];
+    
+  switch(action)
+  {
+  case RUN:
+    if (!fork())
     {
-        client = m_event.xkey.subwindow;
-        if (client == None)
-            client = m_event.xkey.window;
+      /* 
+       * Here's why 'exec' is used in two different ways. First, it is
+       * important to have /bin/sh process the shell command since it
+       * supports argument parsing, which eases our burden dramatically.
+       * 
+       * Now, consider the process sequence as depicted below (where 'xterm'
+       * is the user's chosen shell).
+       * 
+       * fork()
+       * [creates process] ==> execl(/bin/sh, -c, /bin/sh, exec xterm)
+       * # Somewhere in the /bin/sh source...
+       * [creates process] ==> execl(/usr/bin/xterm, /usr/bin/xterm)
+       * 
+       * If we used std::system instead, then the first process after fork()
+       * would stick around to get the return code from the /bin/sh. If 'exec'
+       * were not used in the /bin/sh command line, then /bin/sh would stick
+       * around waiting for /usr/bin/xterm.
+       * 
+       * So, to avoid an extra smallwm process sticking around, _or_ an
+       * unnecessary /bin/sh process sticking around, use 'exec' twice.
+       */
+      execl("/bin/sh", "/bin/sh", "-c", "exec /usr/bin/dmenu_run", NULL);
+      exit(1);
     }
-    else if (m_config.hotkey == HK_FOCUS)
-        client = m_clients.get_focused();
-
-    bool is_client = m_clients.is_client(client);
-
-    KeyBinding binding(key, is_using_secondary_action);
-    KeyboardAction action = m_config.key_commands.binding_to_action[binding];
-    switch (action)
+    return;
+  case CYCLE_FOCUS:
     {
-    case CLIENT_NEXT_DESKTOP:
-        if (is_client)
-             m_clients.client_next_desktop(client);
-        break;
-    case CLIENT_PREV_DESKTOP:
-        if (is_client)
-             m_clients.client_prev_desktop(client);
-        break;
-    case NEXT_DESKTOP:
-        m_clients.next_desktop();
-        break;
-    case PREV_DESKTOP:
-        m_clients.prev_desktop();
-        break;
-    case TOGGLE_STICK:
-        if (is_client)
-             m_clients.toggle_stick(client);
-        break;
-    case ICONIFY:
-        if (is_client)
-             m_clients.iconify(client);
-        break;
-    case RUN:
-        if (!fork())
-        {
-            /* 
-             * Here's why 'exec' is used in two different ways. First, it is
-             * important to have /bin/sh process the shell command since it
-             * supports argument parsing, which eases our burden dramatically.
-             * 
-             * Now, consider the process sequence as depicted below (where 'xterm'
-             * is the user's chosen shell).
-             * 
-             * fork()
-             * [creates process] ==> execl(/bin/sh, -c, /bin/sh, exec xterm)
-             * # Somewhere in the /bin/sh source...
-             * [creates process] ==> execl(/usr/bin/xterm, /usr/bin/xterm)
-             * 
-             * If we used std::system instead, then the first process after fork()
-             * would stick around to get the return code from the /bin/sh. If 'exec'
-             * were not used in the /bin/sh command line, then /bin/sh would stick
-             * around waiting for /usr/bin/xterm.
-             * 
-             * So, to avoid an extra smallwm process sticking around, _or_ an
-             * unnecessary /bin/sh process sticking around, use 'exec' twice.
-             */
-            execl("/bin/sh", "/bin/sh", "-c", "exec /usr/bin/dmenu_run", NULL);
-            exit(1);
-        }
-        break;
-    case MAXIMIZE:
-        if (is_client)
-            m_clients.change_mode(client, CPS_MAX);
-        break;
-    case REQUEST_CLOSE:
-        if (is_client)
-            m_xdata.request_close(client);
-        break;
-    case FORCE_CLOSE:
-        if (is_client)
-            m_xdata.destroy_win(client);
-        break;
-    case K_SNAP_TOP:
-        if (is_client)
-            m_clients.change_mode(client, CPS_SPLIT_TOP);
-        break;
-    case K_SNAP_BOTTOM:
-        if (is_client)
-            m_clients.change_mode(client, CPS_SPLIT_BOTTOM);
-        break;
-    case K_SNAP_LEFT:
-        if (is_client)
-            m_clients.change_mode(client, CPS_SPLIT_LEFT);
-        break;
-    case K_SNAP_RIGHT:
-        if (is_client)
-            m_clients.change_mode(client, CPS_SPLIT_RIGHT);
-        break;
-    case SCREEN_TOP:
-        if (is_client)
-            m_clients.to_relative_screen(client, DIR_TOP);
-        break;
-    case SCREEN_BOTTOM:
-        if (is_client)
-            m_clients.to_relative_screen(client, DIR_BOTTOM);
-        break;
-    case SCREEN_LEFT:
-        if (is_client)
-            m_clients.to_relative_screen(client, DIR_LEFT);
-        break;
-    case SCREEN_RIGHT:
-        if (is_client)
-            m_clients.to_relative_screen(client, DIR_RIGHT);
-        break;
-    case LAYER_ABOVE:
-        if (is_client)
-             m_clients.up_layer(client);
-        break;
-    case LAYER_BELOW:
-        if (is_client)
-             m_clients.down_layer(client);
-        break;
-    case LAYER_TOP:
-        if (is_client)
-             m_clients.set_layer(client, MAX_LAYER);
-        break;
-    case LAYER_BOTTOM:
-        if (is_client)
-             m_clients.set_layer(client, MIN_LAYER);
-        break;
+      Window next_focused = m_focus_cycle.get_next();
+      if (next_focused != None)
+        m_clients.focus(next_focused);
+    }
+    return;
+  case CYCLE_FOCUS_BACK:
+    {
+      Window prev_focused = m_focus_cycle.get_prev();
+      if (prev_focused != None)
+      m_clients.focus(prev_focused);
+    }
+    return;
+  case EXIT_WM:
+    m_done = true;
+    return;
+  case NEXT_DESKTOP:
+    m_clients.next_desktop();
+    return;
+  case PREV_DESKTOP:
+    m_clients.prev_desktop();
+    return;
+    
+  }
+  
+  switch(is_client)
+  {
+  case true:
+    {
+      switch(action)
+      {
+      case CLIENT_NEXT_DESKTOP:
+        m_clients.client_next_desktop(client);
+        return;
+      case CLIENT_PREV_DESKTOP:
+        m_clients.client_prev_desktop(client);
+        return;
+      case TOGGLE_STICK:
+        m_clients.toggle_stick(client);
+        return;
+      case ICONIFY:
+        m_clients.iconify(client);
+        return;
+      case MAXIMIZE:
+        m_clients.change_mode(client, CPS_MAX);
+        return;
+      case REQUEST_CLOSE:
+        m_xdata.request_close(client);
+        return;
+      case FORCE_CLOSE:
+        m_xdata.destroy_win(client);
+        return;
+      case K_SNAP_TOP:
+        m_clients.change_mode(client, CPS_SPLIT_TOP);
+        return;
+      case K_SNAP_BOTTOM:
+        m_clients.change_mode(client, CPS_SPLIT_BOTTOM);
+        return;
+      case K_SNAP_LEFT:
+        m_clients.change_mode(client, CPS_SPLIT_LEFT);
+        return;
+      case K_SNAP_RIGHT:
+        m_clients.change_mode(client, CPS_SPLIT_RIGHT);
+        return;
+      case SCREEN_TOP:
+        m_clients.to_relative_screen(client, DIR_TOP);
+        return;
+      case SCREEN_BOTTOM:
+        m_clients.to_relative_screen(client, DIR_BOTTOM);
+        return;
+      case SCREEN_LEFT:
+        m_clients.to_relative_screen(client, DIR_LEFT);
+        return;
+      case SCREEN_RIGHT:
+        m_clients.to_relative_screen(client, DIR_RIGHT);
+        return;
+      case LAYER_ABOVE:
+        m_clients.up_layer(client);
+        return;
+      case LAYER_BELOW:
+        m_clients.down_layer(client);
+        return;
+      case LAYER_TOP:
+        m_clients.set_layer(client, MAX_LAYER);
+        return;
+      case LAYER_BOTTOM:
+        m_clients.set_layer(client, MIN_LAYER);
+        return;
 
 #define LAYER_SET(l) case LAYER_##l: \
-        if (is_client) m_clients.set_layer(client, l); \
-        break;
+      m_clients.set_layer(client, l); \
+      return;
 
-    LAYER_SET(1);
-    LAYER_SET(2);
-    LAYER_SET(3);
-    LAYER_SET(4);
-    LAYER_SET(5);
-    LAYER_SET(6);
-    LAYER_SET(7);
-    LAYER_SET(8);
-    LAYER_SET(9);
+      LAYER_SET(1);
+      LAYER_SET(2);
+      LAYER_SET(3);
+      LAYER_SET(4);
+      LAYER_SET(5);
+      LAYER_SET(6);
+      LAYER_SET(7);
+      LAYER_SET(8);
+      LAYER_SET(9);
 
-#undef LAYER_SET
-    case CYCLE_FOCUS:
-    {
-        Window next_focused = m_focus_cycle.get_next();
-        if (next_focused != None)
-            m_clients.focus(next_focused);
-    }; break;
-    
-    case CYCLE_FOCUS_BACK:
-    {
-        Window prev_focused = m_focus_cycle.get_prev();
-        if (prev_focused != None)
-            m_clients.focus(prev_focused);
-    }; break;
-
-    case EXIT_WM:
-        m_done = true;
-        break;
+#undef LAYER_SET        
+      }
     }
+    return;
+  }
 }
 
 /**
