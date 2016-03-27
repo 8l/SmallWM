@@ -13,30 +13,34 @@ bool XEvents::step()
 
     if (m_event.type == m_xdata.randr_event_offset + RRNotify)
         handle_rrnotify();
-    
-    if (m_event.type == KeyPress)
-        handle_keypress();
-
-    if (m_event.type == ButtonPress)
-        handle_buttonpress();
-
-    if (m_event.type == ButtonRelease)
-        handle_buttonrelease();
-
-    if (m_event.type == MotionNotify)
-        handle_motionnotify();
-
-    if (m_event.type == MapNotify)
-        handle_mapnotify();
-
-    if (m_event.type == UnmapNotify)
-        handle_unmapnotify();
-
-    if (m_event.type == Expose)
-        handle_expose();
-
-    if (m_event.type == DestroyNotify)
-        handle_destroynotify();
+        
+    switch(m_event.type)
+    {
+    case KeyPress:
+	    handle_keypress();
+    	break;
+    case ButtonPress:
+	    handle_buttonpress();
+    	break;
+    case ButtonRelease:
+    	handle_buttonrelease();
+    	break;
+    case MotionNotify:
+    	handle_motionnotify();
+    	break;
+    case MapNotify:
+    	handle_mapnotify();
+    	break;
+     case UnmapNotify:
+     	handle_unmapnotify();
+    	break;
+     case Expose:
+     	handle_expose();
+    	break;
+     case DestroyNotify:
+     	handle_destroynotify();
+    	break;
+    }
 
     return !m_done;
 }
@@ -234,10 +238,8 @@ void XEvents::handle_buttonpress()
     // We have to test both the window and the subwindow, because different
     // events use different windows
     bool is_client = false;
-    if (m_clients.is_client(m_event.xbutton.window))
-        is_client = true;
-
-    if (m_clients.is_client(m_event.xbutton.subwindow))
+    if ( (m_clients.is_client(m_event.xbutton.window)) || 
+         (m_clients.is_client(m_event.xbutton.subwindow)) )
         is_client = true;
 
     Icon *icon = m_xmodel.find_icon_from_icon_window(m_event.xbutton.window);

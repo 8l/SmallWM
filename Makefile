@@ -11,7 +11,7 @@ LINKERFLAGS=-lX11 -lXrandr
 
 # Binaries are classified into two groups - ${BINS} includes the main smallwm
 # binary only, while ${TESTS} includes all the binaries for the test suite.
-BINS=bin/smallwm
+BINS=bin/swm
 TESTS=$(patsubst test/%.cpp,bin/test-%,$(wildcard test/*.cpp))
 
 # We need to use := do to immediate evaluation. Since inih/ini.c is not with
@@ -41,7 +41,7 @@ OBJS:=${BASE_OBJS} ${LOGGING_OBJS} ${MODEL_OBJS} ${INI_OBJS}
 # re-created.
 HEADERS=$(wildcard src/*.h src/model/*.h)
 
-all: bin/smallwm
+all: bin/swm
 
 # Used to probe for compiler errors, without linking everything
 check: obj ${OBJS}
@@ -66,8 +66,8 @@ tags: ${HEADRES} ${CFILES}
 clean:
 	rm -rf bin obj doc tags
 
-bin/smallwm: bin obj ${OBJS}
-	${CXX} ${CXXFLAGS} ${OBJS} ${LINKERFLAGS} -o bin/smallwm
+bin/swm: bin obj ${OBJS}
+	${CXX} ${CXXFLAGS} ${OBJS} ${LINKERFLAGS} -o bin/swm
 
 obj/ini.o: obj inih/ini.c
 	${CC} ${CFLAGS} -c inih/ini.c -o obj/ini.o
