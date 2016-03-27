@@ -18,28 +18,28 @@ bool XEvents::step()
   {
   case KeyPress:
     handle_keypress();
-	  break;
+    break;
   case ButtonPress:
     handle_buttonpress();
-	  break;
+    break;
   case ButtonRelease:
 	  handle_buttonrelease();
-	  break;
+    break;
   case MotionNotify:
 	  handle_motionnotify();
-	  break;
+    break;
   case MapNotify:
 	  handle_mapnotify();
-	  break;
+    break;
    case UnmapNotify:
    	handle_unmapnotify();
-	  break;
+    break;
    case Expose:
    	handle_expose();
-	  break;
+    break;
    case DestroyNotify:
    	handle_destroynotify();
-	  break;
+    break;
   }
 
   return !m_done;
