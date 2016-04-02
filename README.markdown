@@ -208,8 +208,8 @@ Installation
 =========
 - it's easy, just copy swm to /usr/bin/swm
 - and write swm to .xinitrc
+
 $ cat .xinitrc 
-#!/usr/bin/sh
 
 swm
  
