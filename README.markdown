@@ -204,6 +204,16 @@ the 'a' is used to indicate that this key bindings uses a secondary modifier key
 `Super+Ctrl+a` rather than just `Super+a`. Only the key bindings used to move windows
 between screens use this by default.
 
+Installation
+=========
+- it's easy, just copy swm to /usr/bin/swm
+- and write swm to .xinitrc
+$ cat .xinitrc 
+#!/usr/bin/sh
+
+swm
+ 
+
 Bugs/Todo
 =========
 - Support for the EWMH and the `_NET*` atoms
