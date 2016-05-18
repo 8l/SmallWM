@@ -1,6 +1,7 @@
-What is SmallWM?
+What is swm?
 ================
-SmallWM is an extended version of TinyWM, made for actual desktop use.
+swm is fork of Chris Marchetti's SmallWM. (i.e. swm == SmallWM)
+swm is an extended version of TinyWM, made for actual desktop use.
 This is the newest version, rewritten in C++ - you can checkout the `legacy` 
 branch if you want to use the old C version.
 
@@ -18,7 +19,7 @@ Controls
 ========
 
 Note that these are the default controls - one of the improvements of the C++ 
-port is that it SmallWM now supports configurable keybindings. See the __Configuration__
+port is that it swm now supports configurable keybindings. See the __Configuration__
 for details on how to setup keybindings. The only non-configurable key bindings are the
 ones that involve clicking the mouse, and the `Super+1` ... `Super+9` bindings.
 
@@ -45,7 +46,7 @@ ones that involve clicking the mouse, and the `Super+1` ... `Super+9` bindings.
  - `layer-above`, `layer-below`
 - `Super+Home`, `Super+End`: Puts a client on the topmost or bottommost layer.
  - `layer-top`, `layer-bottom`
-- `Super+Tab`: Focuses the next visible client; note that, on occasion, SmallWM will focus a window which is not actually visible - in this case, just keep cycling until another visible window is chosen (`cycle-focus`).
+- `Super+Tab`: Focuses the next visible client; note that, on occasion, swm will focus a window which is not actually visible - in this case, just keep cycling until another visible window is chosen (`cycle-focus`).
 - `Super+LClick`: Dragging the left mouse button starts moving a window - to place it, let go.
 - `Super+RClick`: Dragging the right mouse button starts resizing a window - to scale it, let go.
 - `Super+1` ... `Super+5` ... `Super+9`: These change the layer to the specified value (1, 5, or 9 respectively, in this example)
@@ -53,7 +54,7 @@ ones that involve clicking the mouse, and the `Super+1` ... `Super+9` bindings.
 ## Misc. ##
 
 - `Super+LClick`: Left-clicking the root window launches a new terminal.
-- `Super+Escape`: Quits SmallWM.
+- `Super+Escape`: Quits swm.
 
 Building
 ========
@@ -61,11 +62,11 @@ As a dependency, you'll need to have access to the headers for Xlib and XRandR.
 You should be able to easily obtain these via your package manager. You'll also
 need a C++ compiler - GNU G++ and clang++ work well.
 
-Other than the dependencies, the Makefile contains everything you need to build and test SmallWM.
+Other than the dependencies, the Makefile contains everything you need to build and test swm.
 
  - `make` compiles a version with symbols useful for debugging. Note that there is no optimized build - if you want an optimized version, open the Makefile and change `-g` to `-O3` in `CXXFLAGS`.
 
-For modifying SmallWM, the other target that you should be aware of is `make check` 
+For modifying swm, the other target that you should be aware of is `make check` 
 which compiles everything but does no linking. This is useful for incremental building
 to track compiler errors in source files.
 
@@ -74,16 +75,16 @@ Running
 
 Typically, the easiest place to put the `smallwm` binary is in `/usr/local/bin`.
 
-If you want to run SmallWM from your login manager, you should put a file like the following in `/usr/share/xsessions/smallwm.desktop`:
+If you want to run swm from your login manager, you should put a file like the following in `/usr/share/xsessions/smallwm.desktop`:
 
     [Desktop Entry]
-    Name=SmallWM
+    Name=swm
     Exec=/usr/local/bin/smallwm.sh
     Type=Application
 
 Inside the script `/usr/local/bin/smallwm.sh`, you should enter something like 
 the following (my personal launch script is more complicated than what follows,
-because mine contains options to allow me to run SmallWM under GDB server or
+because mine contains options to allow me to run swm under GDB server or
 via valgrind):
 
     #!/bin/bash
@@ -94,12 +95,12 @@ via valgrind):
     exec /usr/local/bin/smallwm
 
 At this point, you may choose to write a `.smallwmrc` file to start any programs
-you wish to run for the duration of your session. Note that SmallWM does not include
+you wish to run for the duration of your session. Note that swm does not include
 a process manager to handle session programs (unlike say, XFCE, which will restart
 components like the panel or the desktop if they crash). I use a tool I wrote myself,
 called [jobmon](http://github.com/adamnew123456/jobmon), to manage my system tray and
 other programs, but you are free to choose whatever process manager you like, since
-SmallWM doesn't care about it.
+swm doesn't care about it.
 
 Configuration
 =============
@@ -136,7 +137,7 @@ The options in the `[smallwm]` section are (in order):
  - The width of the border of windows (default: 4).
  - Whether to (1) or not to (0) show application icons inside icon windows (default: 1).
  - The severity of logging messages to send to syslog. By default, this is `WARNING`. See `syslog(3)` for the other log levels.
- - What window to apply hotkeys like MINIMIZE to - this can be either `focus` (which means that the currently focused window is acted upon) or `mouse` (which means that the window under the cursor is acted upon). The default is `mouse`, since that was the only behavior available in SmallWM until recently.
+ - What window to apply hotkeys like MINIMIZE to - this can be either `focus` (which means that the currently focused window is acted upon) or `mouse` (which means that the window under the cursor is acted upon). The default is `mouse`, since that was the only behavior available in swm until recently.
 
 The options in the `[actions]` section are covered next, and then the 
 `[keyboard]` section after that.
@@ -163,14 +164,14 @@ The possibilities for a class action are:
  - `xpos:X` and `ypos:Y` set the relative position of the window on the screen. `X` and `Y` are decimals in the range 0 to 100,
    inclusive. For example, setting `xpos:50` puts the window's left edge in the middle of the screen (because `xpos:50` is
    equivalent to saying that the X position should be 50 percent of the screen's width).
- - `nofocus` prevents SmallWM from automatically focusing windows of the given class. This is useful for windows like system trays,
-   clocks, or other utility windows that you don't want to manipulate by accident. SmallWM will not focus this window after moving
-   it or resizing it; SmallWM will also not focus this window when another is closed, or when switching virtual desktops.
+ - `nofocus` prevents swm from automatically focusing windows of the given class. This is useful for windows like system trays,
+   clocks, or other utility windows that you don't want to manipulate by accident. swm will not focus this window after moving
+   it or resizing it; swm will also not focus this window when another is closed, or when switching virtual desktops.
 
 Keyboard Bindings
 =================
 
-Starting with the C++ rewrite, keyboard bindings in SmallWM are almost entirely 
+Starting with the C++ rewrite, keyboard bindings in swm are almost entirely 
 (except for `Super+1` ... `Super+9`) configurable. The mechanism isn't that
 sophisticated, however, so make sure that you have a copy of `/usr/include/X11/keysymdef.h`
 or an equivalent file open.
@@ -182,7 +183,7 @@ keysym name but with the leading `XK_` removed. For example, take
 `toggle-stick=asciitilde` in the example configuration file. This binds the `toggle-stick`
 action to the `XK_asciitilde` keysym.
 
-The following options can be set under the `[keyboard]` section to configure SmallWM's
+The following options can be set under the `[keyboard]` section to configure swm's
 keyboard bindings. Their meanings _should_ be fairly obvious - if not, go to the
 list of default bindings and see what each of these bindings mean.
 
@@ -207,7 +208,7 @@ between screens use this by default.
 Installation
 =========
 - you need dmenu, http://tools.suckless.org/dmenu/
-- it's easy, just copy swm to /usr/bin/swm
+- it's easy, just copy swm to /usr/local/bin/swm
 - and write swm to .xinitrc
 
 $ cat .xinitrc 
@@ -233,6 +234,6 @@ Credits
 
 License
 =======
-SmallWM was migrated to the 2-Clause BSD License on 2013-11-18. See LICENSE.txt for details.
+swm was migrated to the 2-Clause BSD License on 2013-11-18. See LICENSE.txt for details.
 
-The inih code, included as a part of SmallWM, is available under the New BSD License. See `inih/LICENSE.txt` for details.
+The inih code, included as a part of swm, is available under the New BSD License. See `inih/LICENSE.txt` for details.
