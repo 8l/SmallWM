@@ -206,6 +206,7 @@ between screens use this by default.
 
 Installation
 =========
+- you need dmenu, http://tools.suckless.org/dmenu/
 - it's easy, just copy swm to /usr/bin/swm
 - and write swm to .xinitrc
 
