@@ -212,7 +212,11 @@ Installation
 $ cat .xinitrc 
 
 swm
- 
+
+[for devuan slim]
+- copy swm.desktop and logout and hit F1 key to change swm.
+$ sudo cp swm.desktop /usr/share/xsessions/swm.desktop
+
 
 Bugs/Todo
 =========
