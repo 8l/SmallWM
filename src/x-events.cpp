@@ -115,7 +115,8 @@ void XEvents::handle_keypress()
        * So, to avoid an extra smallwm process sticking around, _or_ an
        * unnecessary /bin/sh process sticking around, use 'exec' twice.
        */
-      execl("/bin/sh", "/bin/sh", "-c", "exec /usr/bin/dmenu_run", NULL);
+      //execl("/bin/sh", "/bin/sh", "-c", "exec /usr/bin/dmenu_run", NULL);
+      execl("/bin/sh", "/bin/sh", "-c", "exec /usr/local/bin/dmenu_run", NULL);
       exit(1);
     }
     return;
