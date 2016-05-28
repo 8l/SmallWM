@@ -6,44 +6,7 @@
  *
  * @return true if more events can be processed, false otherwise.
  */
-bool XEvents::step()
-{
-  // Grab the next event from X, and then dispatch upon its type
-  m_xdata.next_event(m_event);
-
-  if (m_event.type == m_xdata.randr_event_offset + RRNotify)
-    handle_rrnotify();
-      
-  switch(m_event.type)
-  {
-  case KeyPress:
-    handle_keypress();
-    break;
-  case ButtonPress:
-    handle_buttonpress();
-    break;
-  case ButtonRelease:
-	  handle_buttonrelease();
-    break;
-  case MotionNotify:
-	  handle_motionnotify();
-    break;
-  case MapNotify:
-	  handle_mapnotify();
-    break;
-   case UnmapNotify:
-   	handle_unmapnotify();
-    break;
-   case Expose:
-   	handle_expose();
-    break;
-   case DestroyNotify:
-   	handle_destroynotify();
-    break;
-  }
-
-  return !m_done;
-}
+  //move XEvents::step() to header
 
 /**
  * Rebuilds the display graph whenever XRandR notifies us.
@@ -115,8 +78,8 @@ void XEvents::handle_keypress()
        * So, to avoid an extra smallwm process sticking around, _or_ an
        * unnecessary /bin/sh process sticking around, use 'exec' twice.
        */
-      if(execl("/bin/sh", "/bin/sh", "-c", "exec /usr/local/bin/dmenu_run", NULL)<0)
-        execl("/bin/sh", "/bin/sh", "-c", "exec /usr/bin/dmenu_run", NULL);
+      //execl("/bin/sh", "/bin/sh", "-c", "exec /usr/bin/dmenu_run", NULL);
+      execl("/bin/sh", "/bin/sh", "-c", "exec /usr/local/bin/dmenu_run", NULL);
       exit(1);
     }
     return;

@@ -51,8 +51,51 @@ public:
             xdata.add_hotkey(binding.first, binding.second);
         }
     };
+    
+    /**
+     * Runs a single iteration of the event loop, by capturing an X event and
+     * acting upon it.
+     *
+     * @return true if more events can be processed, false otherwise.
+     */
+    bool step()
+    {
+      // Grab the next event from X, and then dispatch upon its type
+      m_xdata.next_event(m_event);
 
-    bool step();
+      if (m_event.type == m_xdata.randr_event_offset + RRNotify)
+        handle_rrnotify();
+          
+      switch(m_event.type)
+      {
+      case KeyPress:
+        handle_keypress();
+        break;
+      case ButtonPress:
+        handle_buttonpress();
+        break;
+      case ButtonRelease:
+              handle_buttonrelease();
+        break;
+      case MotionNotify:
+              handle_motionnotify();
+        break;
+      case MapNotify:
+              handle_mapnotify();
+        break;
+       case UnmapNotify:
+            handle_unmapnotify();
+        break;
+       case Expose:
+            handle_expose();
+        break;
+       case DestroyNotify:
+            handle_destroynotify();
+        break;
+      }
+
+      return !m_done;
+    }
 
     // Note that this is exposed because smallwm.cpp has to import existing
     // windows when main() runs
