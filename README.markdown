@@ -209,6 +209,9 @@ Installation
 =========
 - you need dmenu, http://tools.suckless.org/dmenu/
 - it's easy, just copy swm to /usr/local/bin/swm
+
+$ sudo cp bin/swm /usr/local/bin/swm
+
 - and write swm to .xinitrc
 
 $ cat .xinitrc 
