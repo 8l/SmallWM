@@ -17,14 +17,18 @@ bool ChangeStream::has_more()
  */
 ChangeStream::change_ptr ChangeStream::get_next()
 {
-    if (has_more())
+  switch(has_more())
+  {
+  case 0:
+    return 0;
+  default:
     {
-        change_ptr change = m_changes.front();
-        m_changes.pop();
-        return change;
+      change_ptr change = m_changes.front();
+      m_changes.pop();
+      return change;
     }
-    else
-        return 0;
+    break;
+  }
 }
 
 /**
