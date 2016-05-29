@@ -7,7 +7,7 @@ RM = rm
 
 .SUFFIXES: .o .cpp
 
-lib = libUnitTest++.a
+lib = libunit.a
 test = TestUnitTest++
 
 src = src/AssertException.cpp \

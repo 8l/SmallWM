@@ -32,7 +32,43 @@ public:
         m_change(0), m_should_relayer(false), m_should_reposition_icons(false)
     {};
 
-    void handle_queued_changes();
+    void handle_queued_changes()
+    {
+      m_should_relayer = false;
+      m_should_reposition_icons = false;
+
+      while ((m_change = m_changes.get_next()) != 0)
+      {
+          if (m_change->is_layer_change())
+              handle_layer_change();
+          else if (m_change->is_focus_change())
+              handle_focus_change();
+          else if (m_change->is_client_desktop_change())
+              handle_client_desktop_change();
+          else if (m_change->is_current_desktop_change())
+              handle_current_desktop_change();
+          else if (m_change->is_screen_change())
+              handle_screen_change();
+          else if (m_change->is_mode_change())
+              handle_mode_change();
+          else if (m_change->is_location_change())
+              handle_location_change();
+          else if (m_change->is_size_change())
+              handle_size_change();
+          else if (m_change->is_destroy_change())
+              handle_destroy_change();
+          else if (m_change->is_unmap_change())
+              handle_unmap_change();
+
+          delete m_change;
+      }
+
+      if (m_should_relayer)
+          do_relayer();
+
+      if (m_should_reposition_icons)
+          reposition_icons();
+    }
 
 private:
     void register_new_icon(Window, bool);

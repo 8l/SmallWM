@@ -75,22 +75,22 @@ public:
         handle_buttonpress();
         break;
       case ButtonRelease:
-              handle_buttonrelease();
+        handle_buttonrelease();
         break;
       case MotionNotify:
-              handle_motionnotify();
+        handle_motionnotify();
         break;
       case MapNotify:
-              handle_mapnotify();
+        handle_mapnotify();
         break;
        case UnmapNotify:
-            handle_unmapnotify();
+        handle_unmapnotify();
         break;
        case Expose:
-            handle_expose();
+        handle_expose();
         break;
        case DestroyNotify:
-            handle_destroynotify();
+        handle_destroynotify();
         break;
       }
 
