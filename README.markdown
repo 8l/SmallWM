@@ -1,3 +1,6 @@
+no longer use smallwm, 
+move to https://github.com/8l/tinywm
+
 What is swm?
 ================
 swm is fork of Chris Marchetti's SmallWM. (i.e. swm == SmallWM)
